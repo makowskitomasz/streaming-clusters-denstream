@@ -26,7 +26,7 @@ run:
 	python src/clustering_api/src/main.py
 
 test:
-	pytest tests/ --maxfail=1 --disable-warnings -q
+	pytest src/clustering_api/tests/ --maxfail=1 --disable-warnings -q
 
 lint:
 	ruff check . --output-format=full --fix

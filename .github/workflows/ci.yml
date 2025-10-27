@@ -34,4 +34,4 @@ jobs:
 
       - name: Run Pytest
         run: |
-          conda run -n streaming_clusters pytest tests/ --maxfail=1 --disable-warnings -q
+          conda run -n streaming_clusters pytest src/clustering_api/tests/ --maxfail=1 --disable-warnings -q
