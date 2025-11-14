@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from controllers.health_controller import health_api
 from controllers.stream_controller import router as stream_api
 from controllers.nyc_taxi_controller import router as nyc_taxi_api
+from controllers.clustering_controller import router as clustering_api
 
 
 def create_app() -> FastAPI:
@@ -10,4 +11,5 @@ def create_app() -> FastAPI:
     app.include_router(health_api)
     app.include_router(stream_api)
     app.include_router(nyc_taxi_api)
+    app.include_router(clustering_api)
     return app

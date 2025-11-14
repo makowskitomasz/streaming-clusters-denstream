@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
-from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import List, Optional, Tuple, Literal
+
+from pydantic import BaseModel, Field, validator
 
 
 class DataPoint(BaseModel):
@@ -21,7 +22,7 @@ class ClusterPoint(BaseModel):
     timestamp: Optional[float] = None
     weight: float = 1.0
 
-    @field_validator("weight")
+    @validator("weight")
     def _non_negative_weight(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("ClusterPoint weight must be positive")
@@ -35,23 +36,23 @@ class Cluster(BaseModel):
     centroid: Tuple[float, float]
     size: int = Field(..., ge=0)
     density: float = Field(..., ge=0.0)
+    status: Literal["active", "decayed"] = "active"
     points: List[ClusterPoint] = Field(default_factory=list)
 
-    @field_validator("centroid")
+    @validator("centroid")
     def _centroid_length(cls, value: Tuple[float, float]) -> Tuple[float, float]:
         if len(value) != 2:
             raise ValueError("Centroid must be a 2D coordinate")
         return value
 
-    @model_validator(mode="after")
-    def _validate_size_consistency(self):
-        """Ensure that declared cluster size >= number of points."""
-        if self.points and self.size < len(self.points):
-            raise ValueError(
-                f"Cluster size ({self.size}) cannot be smaller than "
-                f"the number of points ({len(self.points)})"
-            )
-        return self
+    @validator("points", always=True)
+    def _size_consistency(cls, points: List[ClusterPoint], values):
+        expected_size = values.get("size")
+        if expected_size is None:
+            return points
+        if points and expected_size < len(points):
+            raise ValueError("Cluster size cannot be smaller than number of points")
+        return points
 
 
 class ClusterSummary(BaseModel):
@@ -66,16 +67,9 @@ class ClusterSummary(BaseModel):
     def from_clusters(cls, clusters: List[Cluster], noise_points: int = 0) -> "ClusterSummary":
         total_clusters = len(clusters)
         total_points = sum(cluster.size for cluster in clusters)
-
-        avg_density = (
-            sum(cluster.density for cluster in clusters) / total_clusters
-            if total_clusters > 0
-            else 0.0
-        )
-
+        avg_density = sum(cluster.density for cluster in clusters) / total_clusters if total_clusters else 0.0
         total_items = total_points + noise_points
         noise_ratio = noise_points / total_items if total_items else 0.0
-
         return cls(
             total_clusters=total_clusters,
             total_points=total_points,
