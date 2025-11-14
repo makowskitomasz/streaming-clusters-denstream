@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
 

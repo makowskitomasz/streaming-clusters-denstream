@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from typing import List, Iterator, Optional
+from typing import List, Optional
 from clustering_api.src.models.data_models import DataPoint
 
 
