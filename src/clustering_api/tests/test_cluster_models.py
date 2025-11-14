@@ -18,6 +18,11 @@ def test_cluster_size_vs_points_validation():
         Cluster(id="c1", centroid=(0.0, 0.0), size=0, density=0.5, points=[point])
 
 
+def test_cluster_status_flag():
+    cluster = Cluster(id="c2", centroid=(1.0, 1.0), size=5, density=0.8, status="decayed")
+    assert cluster.status == "decayed"
+
+
 def test_cluster_summary_from_clusters():
     c1 = Cluster(id="1", centroid=(0.0, 0.0), size=10, density=0.4)
     c2 = Cluster(id="2", centroid=(1.0, 1.0), size=5, density=0.6)
