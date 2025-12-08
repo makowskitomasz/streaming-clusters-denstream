@@ -1,5 +1,6 @@
 ENV_NAME=streaming_clusters
 ENV_FILE=environment.yml
+PYTHONPATH=src
 
 .PHONY: help env update activate run test clean lint notebooks
 
@@ -23,10 +24,10 @@ activate:
 	@echo "  conda activate $(ENV_NAME)"
 
 run:
-	python src/clustering_api/src/main.py
+	PYTHONPATH=$(PYTHONPATH) python -m clustering_api.src.main
 
 test:
-	pytest src/clustering_api/tests/ --maxfail=1 --disable-warnings -q
+	PYTHONPATH=$(PYTHONPATH) pytest src/clustering_api/tests/ --maxfail=1
 
 lint:
 	ruff check . --output-format=full --fix

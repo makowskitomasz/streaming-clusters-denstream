@@ -9,15 +9,16 @@ def test_generate_batch_structure():
     assert isinstance(data, list)
     assert len(data) > 0
     sample = data[0]
-    for key in ["x", "y", "timestamp", "cluster_id", "batch_id", "noise"]:
-        assert key in sample
+    assert sample.source == "synthetic"
+    assert sample.batch_id == service.batch_id
+    assert sample.noise in {True, False}
 
 
 def test_save_batch_creates_file(tmp_path):
     service = StreamService(output_dir=tmp_path)
     file_path = service.save_batch()
     assert os.path.exists(file_path)
-    df = pd.read_csv(file_path)
+    df = pd.read_json(file_path)
     assert len(df) > 0
     assert "x" in df.columns
 

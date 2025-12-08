@@ -37,7 +37,7 @@ def get_denstream_clusters():
 
 @router.post("/denstream/configure", summary="Update DenStream hyperparameters")
 def configure_denstream(payload: DenStreamConfigPayload):
-    updated = denstream_service.configure(**payload.dict(exclude_none=True))
+    updated = denstream_service.configure(**payload.model_dump(exclude_none=True))
     return {"message": "DenStream configuration updated", "config": updated}
 
 

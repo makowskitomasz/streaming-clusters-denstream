@@ -57,6 +57,8 @@ def test_next_batch_returns_datapoints(tmp_path):
     assert hasattr(point, "timestamp")
     assert hasattr(point, "cluster_id")
     assert point.source == "nyc_taxi"
+    assert point.batch_id == service.batch_id
+    assert point.noise is None
 
 
 def test_next_batch_order(tmp_path):
@@ -107,3 +109,4 @@ def test_cluster_id_grid_hashing(tmp_path):
     point = batch[0]
     assert isinstance(point.cluster_id, int)
     assert point.cluster_id >= 0
+    assert point.batch_id == service.batch_id

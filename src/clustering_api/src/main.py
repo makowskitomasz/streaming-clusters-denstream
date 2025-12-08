@@ -1,12 +1,13 @@
 import uvicorn
-from app import create_app
-from config import config
+
+from clustering_api.src.app import create_app
+from clustering_api.src.config import config
 
 app = create_app()
 
 if __name__ == '__main__':
     uvicorn.run(
-        "main:app",
+        "clustering_api.src.main:app",
         host="0.0.0.0",
         port=config.app.server_port,
         reload=True

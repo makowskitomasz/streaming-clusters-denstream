@@ -2,3 +2,11 @@ version: 0.0.0
 
 app:
   server_port: 4321
+
+denstream:
+  decay_factor: 0.01
+  epsilon: 0.5
+  beta: 0.5
+  mu: 2.5
+  n_samples_init: 200
+  stream_speed: 50
