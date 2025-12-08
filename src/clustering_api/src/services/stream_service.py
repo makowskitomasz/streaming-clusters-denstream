@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import ClassVar, Dict, List, Optional, cast
+from typing import Dict, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -16,13 +16,6 @@ from clustering_api.src.models.data_models import (
 
 class StreamService:
     """Singleton service generating drifting clustered data batches."""
-
-    _instance: ClassVar["StreamService" | None] = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
 
     def __init__(
         self,

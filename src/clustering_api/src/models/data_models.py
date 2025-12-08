@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator

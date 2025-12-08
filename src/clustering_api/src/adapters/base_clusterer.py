@@ -5,8 +5,6 @@ Every concrete clusterer (DenStream, HDBSCAN, future models) should implement
 this interface so services can remain agnostic to underlying algorithms.
 """
 
-from __future__ import annotations
-
 import abc
 from typing import Any
 

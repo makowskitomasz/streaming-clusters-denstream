@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, Dict, Iterable, List, Sequence, Union
 
 from river import cluster as river_cluster
