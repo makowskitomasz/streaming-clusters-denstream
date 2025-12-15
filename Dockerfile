@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.6
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 ENV PYTHONUNBUFFERED=1 \
