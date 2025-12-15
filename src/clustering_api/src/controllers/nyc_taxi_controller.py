@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
 router = APIRouter(prefix="/nyc-taxi", tags=["NYC Taxi"])

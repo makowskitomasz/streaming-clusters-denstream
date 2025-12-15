@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from clustering_api.src.models.data_models import ClusterPoint
 from clustering_api.src.services.denstream_service import denstream_service
 
-
 router = APIRouter(prefix="/v1/clustering", tags=["Clustering"])
 
 

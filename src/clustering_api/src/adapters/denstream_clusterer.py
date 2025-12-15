@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Iterable, List, Dict, Any, Sequence, Union
+from typing import Any, Dict, Iterable, List, Sequence, Union
 
 from river import cluster as river_cluster
 
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint, DataPoint
-
 
 RawPoint = Union[ClusterPoint, DataPoint, Dict[str, Any], Sequence[float]]
 

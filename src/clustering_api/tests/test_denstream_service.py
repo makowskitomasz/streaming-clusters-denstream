@@ -1,6 +1,6 @@
+from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint
 from clustering_api.src.services.denstream_service import DenStreamService
-from clustering_api.src.adapters.base_clusterer import BaseClusterer
 
 
 class DummyClusterer(BaseClusterer):

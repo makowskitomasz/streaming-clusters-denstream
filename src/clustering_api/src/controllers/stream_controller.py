@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Body
+
 from clustering_api.src.services.stream_service import stream_service
 
 router = APIRouter(prefix="/v1/stream", tags=["Stream"])

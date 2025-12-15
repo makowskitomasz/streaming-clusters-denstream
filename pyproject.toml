@@ -19,7 +19,7 @@ dependencies = [
     "pyaml_env",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "ruff",

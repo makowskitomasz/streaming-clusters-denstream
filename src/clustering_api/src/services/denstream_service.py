@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Callable, Optional, Any
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.adapters.denstream_clusterer import DenStreamClusterer

@@ -1,6 +1,6 @@
 import pandas as pd
-from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
+from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
 # --------------------------
 # Helper: create small CSV
