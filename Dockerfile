@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 python:3.12 AS base
+FROM python:3.12 AS base
 ENV PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1
 
