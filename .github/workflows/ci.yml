@@ -25,11 +25,11 @@ jobs:
       - name: Sync dependencies (with dev group)
         run: uv sync --group dev
 
-      - name: Lint with Ruff
-        run: uv run ruff check . --output-format=full
+      - name: Lint
+        run: make lint
 
-      - name: Run Pytest
-        run: uv run pytest -q
+      - name: Run Tests
+        run: make test
 
       - name: Build Docker image
         run: docker build -t streaming-clusters-denstream:ci .

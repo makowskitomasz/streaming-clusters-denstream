@@ -1,14 +1,12 @@
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 
 class StreamService:
-    """
-    Singleton service for generating synthetic streaming data.
+    """Singleton service for generating synthetic streaming data.
     Supports parameter configuration and stream reset.
     """
 
@@ -36,7 +34,7 @@ class StreamService:
         for i in range(self.n_clusters):
             self.centroids[i] += np.random.uniform(-self.drift, self.drift, 2)
 
-    def generate_batch(self) -> List[Dict]:
+    def generate_batch(self) -> list[dict]:
         """Generate one batch of drifting clustered data."""
         self.batch_id += 1
         self._update_centroids()
@@ -45,7 +43,7 @@ class StreamService:
 
         for cid, center in enumerate(self.centroids):
             cluster_points = np.random.normal(
-                loc=center, scale=0.5, size=(self.points_per_cluster, 2)
+                loc=center, scale=0.5, size=(self.points_per_cluster, 2),
             )
             for x, y in cluster_points:
                 points.append(
@@ -56,7 +54,7 @@ class StreamService:
                         "cluster_id": cid,
                         "batch_id": self.batch_id,
                         "noise": False,
-                    }
+                    },
                 )
 
         n_noise = int(self.points_per_cluster * self.n_clusters * self.noise_ratio)
@@ -70,12 +68,12 @@ class StreamService:
                     "cluster_id": -1,
                     "batch_id": self.batch_id,
                     "noise": True,
-                }
+                },
             )
 
         return points
 
-    def save_batch(self, filename: Optional[str] = None) -> str:
+    def save_batch(self, filename: str | None = None) -> str:
         """Generate a batch and save it as a CSV file."""
         batch = self.generate_batch()
         df = pd.DataFrame(batch)
@@ -88,10 +86,10 @@ class StreamService:
 
     def configure(
         self,
-        n_clusters: Optional[int] = None,
-        points_per_cluster: Optional[int] = None,
-        noise_ratio: Optional[float] = None,
-        drift: Optional[float] = None,
+        n_clusters: int | None = None,
+        points_per_cluster: int | None = None,
+        noise_ratio: float | None = None,
+        drift: float | None = None,
     ):
         """Update configuration dynamically."""
         if n_clusters is not None and n_clusters != self.n_clusters:
@@ -109,7 +107,7 @@ class StreamService:
         self.batch_id = 0
         self.centroids = [np.random.uniform(-5, 5, 2) for _ in range(self.n_clusters)]
 
-    def get_state(self) -> Dict:
+    def get_state(self) -> dict:
         """Return current configuration and state."""
         return {
             "n_clusters": self.n_clusters,

@@ -30,8 +30,9 @@ dev = [
 ]
 
 [tool.ruff]
+# select = ["ALL"]
+extend-select = ["UP007", "I"]
 line-length = 100
-extend-select = ["I"]
 
 [tool.ruff.format]
 quote-style = "double"

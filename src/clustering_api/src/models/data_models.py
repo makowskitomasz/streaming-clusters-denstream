@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional, Tuple
+from typing import Literal
 
 from pydantic import BaseModel, Field, validator
 
@@ -18,8 +18,8 @@ class ClusterPoint(BaseModel):
 
     x: float
     y: float
-    cluster_id: Optional[str] = None
-    timestamp: Optional[float] = None
+    cluster_id: str | None = None
+    timestamp: float | None = None
     weight: float = 1.0
 
     @validator("weight")
@@ -33,20 +33,20 @@ class Cluster(BaseModel):
     """Unified cluster representation across DenStream/HDBSCAN outputs."""
 
     id: str = Field(..., description="Unique identifier for the cluster")
-    centroid: Tuple[float, float]
+    centroid: tuple[float, float]
     size: int = Field(..., ge=0)
     density: float = Field(..., ge=0.0)
     status: Literal["active", "decayed"] = "active"
-    points: List[ClusterPoint] = Field(default_factory=list)
+    points: list[ClusterPoint] = Field(default_factory=list)
 
     @validator("centroid")
-    def _centroid_length(cls, value: Tuple[float, float]) -> Tuple[float, float]:
+    def _centroid_length(cls, value: tuple[float, float]) -> tuple[float, float]:
         if len(value) != 2:
             raise ValueError("Centroid must be a 2D coordinate")
         return value
 
     @validator("points", always=True)
-    def _size_consistency(cls, points: List[ClusterPoint], values):
+    def _size_consistency(cls, points: list[ClusterPoint], values):
         expected_size = values.get("size")
         if expected_size is None:
             return points
@@ -64,7 +64,7 @@ class ClusterSummary(BaseModel):
     noise_ratio: float = Field(..., ge=0.0, le=1.0)
 
     @classmethod
-    def from_clusters(cls, clusters: List[Cluster], noise_points: int = 0) -> "ClusterSummary":
+    def from_clusters(cls, clusters: list[Cluster], noise_points: int = 0) -> ClusterSummary:
         total_clusters = len(clusters)
         total_points = sum(cluster.size for cluster in clusters)
         avg_density = sum(cluster.density for cluster in clusters) / total_clusters if total_clusters else 0.0

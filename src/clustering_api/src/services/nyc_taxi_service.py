@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional
 
 import pandas as pd
 
@@ -7,8 +6,7 @@ from clustering_api.src.models.data_models import DataPoint
 
 
 class NycTaxiService:
-    """
-    Loads NYC Taxi trip data (2016 format) and converts to streaming DataPoints.
+    """Loads NYC Taxi trip data (2016 format) and converts to streaming DataPoints.
     """
 
     def __init__(self, file_path: str, batch_size: int = 500):
@@ -22,8 +20,7 @@ class NycTaxiService:
     # -----------------------
 
     def _load_df(self) -> pd.DataFrame:
-        """
-        Load CSV/Parquet depending on extension.
+        """Load CSV/Parquet depending on extension.
         Expected columns:
         - tpep_pickup_datetime
         - pickup_longitude
@@ -73,14 +70,13 @@ class NycTaxiService:
             df = self._load_df()
             self._iterator = df.iterrows()
 
-    def next_batch(self) -> Optional[List[DataPoint]]:
-        """
-        Returns the next batch of DataPoints.
+    def next_batch(self) -> list[DataPoint] | None:
+        """Returns the next batch of DataPoints.
         If fewer than batch_size remain, return them anyway.
         """
         self._ensure_iterator()
 
-        batch: List[DataPoint] = []
+        batch: list[DataPoint] = []
 
         for _ in range(self.batch_size):
             try:
@@ -96,8 +92,7 @@ class NycTaxiService:
         return batch
 
     def reset(self):
-        """
-        Reset batch iterator.
+        """Reset batch iterator.
         """
         self._iterator = None
         self.batch_id = 0

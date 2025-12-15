@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Sequence, Union
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from river import cluster as river_cluster
 
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint, DataPoint
 
-RawPoint = Union[ClusterPoint, DataPoint, Dict[str, Any], Sequence[float]]
+RawPoint = ClusterPoint | DataPoint | dict[str, Any] | Sequence[float]
 
 
 class DenStreamClusterer(BaseClusterer):
@@ -42,7 +43,7 @@ class DenStreamClusterer(BaseClusterer):
             stream_speed=self.config["stream_speed"],
         )
 
-    def _iter_features(self, data: Iterable[RawPoint]) -> Iterable[Dict[str, float]]:
+    def _iter_features(self, data: Iterable[RawPoint]) -> Iterable[dict[str, float]]:
         for item in data:
             if isinstance(item, ClusterPoint) or isinstance(item, DataPoint):
                 yield {"x": float(item.x), "y": float(item.y)}
@@ -53,9 +54,9 @@ class DenStreamClusterer(BaseClusterer):
             else:
                 raise TypeError(f"Unsupported data type for DenStreamClusterer: {type(item)}")
 
-    def _micro_clusters_to_cluster(self, clusters_dict, status: str) -> List[Cluster]:
+    def _micro_clusters_to_cluster(self, clusters_dict, status: str) -> list[Cluster]:
         timestamp = getattr(self._model, "timestamp", 0)
-        clusters: List[Cluster] = []
+        clusters: list[Cluster] = []
         for idx, micro_cluster in clusters_dict.items():
             center = micro_cluster.calc_center(timestamp)
             centroid = (
@@ -70,7 +71,7 @@ class DenStreamClusterer(BaseClusterer):
                     size=int(micro_cluster.N),
                     density=density,
                     status=status,
-                )
+                ),
             )
         return clusters
 
@@ -82,7 +83,7 @@ class DenStreamClusterer(BaseClusterer):
         for features in self._iter_features(data):
             self._model.learn_one(features)
 
-    def get_clusters(self) -> Dict[str, List[Cluster]]:
+    def get_clusters(self) -> dict[str, list[Cluster]]:
         active = self._micro_clusters_to_cluster(self._model.p_micro_clusters, status="active")
         decayed = self._micro_clusters_to_cluster(self._model.o_micro_clusters, status="decayed")
         return {"active": active, "decayed": decayed}

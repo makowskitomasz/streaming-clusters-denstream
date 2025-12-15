@@ -19,7 +19,7 @@ def create_sample_csv(tmp_path):
             "pickup_latitude": [40.73, 40.74, 40.75, 40.76],
             "trip_distance": [1.1, 2.2, 3.3, 4.4],
             "total_amount": [8.80, 12.50, 16.30, 20.10],
-        }
+        },
     )
     test_file = tmp_path / "nyc_sample.csv"
     df.to_csv(test_file, index=False)

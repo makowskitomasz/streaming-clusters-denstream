@@ -1,5 +1,4 @@
-"""
-Shared abstraction for clustering engines used across the streaming pipeline.
+"""Shared abstraction for clustering engines used across the streaming pipeline.
 
 Every concrete clusterer (DenStream, HDBSCAN, future models) should implement
 this interface so services can remain agnostic to underlying algorithms.

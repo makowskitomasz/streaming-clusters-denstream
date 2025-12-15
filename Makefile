@@ -1,7 +1,7 @@
 APP_NAME=streaming-clusters-denstream
 DOCKER_IMAGE=$(APP_NAME):latest
 
-.PHONY: help build up run test lint format shell logs
+.PHONY: help build up run test lint lint-fix format shell logs
 
 help:
 	@echo "Available commands:"
@@ -27,6 +27,9 @@ test:
 	uv run pytest -q
 
 lint:
+	uv run ruff check . --output-format=full
+
+lint-fix:
 	uv run ruff check . --output-format=full --fix
 
 format:
