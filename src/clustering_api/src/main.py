@@ -1,5 +1,5 @@
 import uvicorn
-from app import create_app
+from clustering_api.src.app import create_app
 from config import config
 
 app = create_app()
