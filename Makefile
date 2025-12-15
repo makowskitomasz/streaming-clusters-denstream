@@ -21,7 +21,7 @@ up:
 	docker compose up --build
 
 run:
-	docker run --rm -p 4321:4321 $(DOCKER_IMAGE)
+	docker run --rm -p 4321:8000 $(DOCKER_IMAGE)
 
 test:
 	uv run pytest -q
