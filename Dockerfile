@@ -1,18 +1,26 @@
-FROM python:3.12 AS base
-ENV PYTHONUNBUFFERED=1 \
-    UV_SYSTEM_PYTHON=1
+# syntax=docker/dockerfile:1.6
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-RUN pip install uv
+ENV PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy dependency files first for caching
-COPY pyproject.toml uv.lock* ./
-RUN uv sync --frozen --no-dev
+# Install dependencies first for better layer caching.
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
 
-# Copy source code
-COPY . /app
-RUN uv sync --frozen
+# Copy the rest of the application and install the project itself.
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 EXPOSE 8000
 

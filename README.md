@@ -53,10 +53,18 @@ frontend/
 - `frontend/streamlit_app/`: Streamlit UI modules, component definitions, and visualization logic.
 
 ## Backend Runbook
+### Local (Conda/uv)
 1. **Install dependencies**: `conda env create -f environment.yml`.
 2. **Activate environment**: `conda activate streaming-clusters` (replace with the name defined in `environment.yml`).
-3. **Start FastAPI**: `python main.py` or run the provided Make target.
-4. **Inspect Swagger UI**: open `http://localhost:8000/docs` to explore REST endpoints and schemas.
+3. **Install Python deps**: `uv sync` (uses `pyproject.toml` + `uv.lock`).
+4. **Start FastAPI**: `uv run uvicorn clustering_api.src.main:app --host 0.0.0.0 --port 8000` or run `python src/clustering_api/src/main.py`.
+5. **Inspect Swagger UI**: open `http://localhost:8000/docs` to explore REST endpoints and schemas.
+
+### Containerized
+1. **Build & run**: `docker compose up --build` (uses the provided Dockerfile pinned to `pyproject.toml`/`uv.lock`).
+2. Wait for `Uvicorn running on http://0.0.0.0:8000` in the logs.
+3. Open `http://localhost:8000/docs` for Swagger or hit the API directly.
+4. Stop everything with `Ctrl+C` or `docker compose down`.
 
 ## Frontend Runbook (Streamlit)
 1. Change to the frontend directory: `cd frontend/streamlit_app`.
