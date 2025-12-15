@@ -1,12 +1,13 @@
 from fastapi import APIRouter
+
 from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
 router = APIRouter(prefix="/nyc-taxi", tags=["NYC Taxi"])
 
 # Example path – you will place your CSV here
 service = NycTaxiService(
-    file_path="data/raw/nyc_taxi/yellow_tripdata_2016-01_batch.csv", 
-    batch_size=500
+    file_path="data/raw/nyc_taxi/yellow_tripdata_2016-01_batch.csv",
+    batch_size=500,
 )
 
 
