@@ -62,10 +62,54 @@ class MetricsLatestResponse:
     """Latest metrics snapshot for a model."""
 
     silhouette_score: float | None
-    active_clusters: int
-    noise_ratio: float
+    active_clusters: int | None
+    noise_ratio: float | None
+    drift_magnitude: float | None
+    batch_id: int | str | None
+    timestamp: str | None
+    latency_ms: float | None
     model_name: str | None
     raw: dict[str, object]
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, object]) -> "MetricsLatestResponse":
+        latest = payload.get("latest")
+        model_payload: dict[str, object] = {}
+        model_name = None
+        if isinstance(latest, dict) and latest:
+            model_name, model_payload = next(iter(latest.items()))
+            if not isinstance(model_payload, dict):
+                model_payload = {}
+        silhouette = model_payload.get("silhouette_score")
+        noise_ratio = model_payload.get("noise_ratio")
+        active_clusters = model_payload.get("number_of_clusters")
+        if active_clusters is None:
+            active_clusters = model_payload.get("active_clusters")
+        drift_magnitude = model_payload.get("drift_magnitude")
+        batch_id = model_payload.get("batch_id")
+        timestamp = model_payload.get("timestamp")
+        latency_ms = model_payload.get("latency_ms")
+        return cls(
+            silhouette_score=float(silhouette)
+            if isinstance(silhouette, (int, float))
+            else None,
+            active_clusters=int(active_clusters)
+            if isinstance(active_clusters, (int, float))
+            else None,
+            noise_ratio=float(noise_ratio)
+            if isinstance(noise_ratio, (int, float))
+            else None,
+            drift_magnitude=float(drift_magnitude)
+            if isinstance(drift_magnitude, (int, float))
+            else None,
+            batch_id=batch_id if isinstance(batch_id, (int, str)) else None,
+            timestamp=timestamp if isinstance(timestamp, str) else None,
+            latency_ms=float(latency_ms)
+            if isinstance(latency_ms, (int, float))
+            else None,
+            model_name=model_name,
+            raw=payload,
+        )
 
 
 class ApiClient:
@@ -111,7 +155,7 @@ class ApiClient:
 
     def get_latest_metrics(self) -> MetricsLatestResponse:
         data = self._request("GET", "/v1/metrics/latest")
-        return self._parse_metrics_latest(data)
+        return MetricsLatestResponse.from_payload(data)
 
     def ping(self) -> bool:
         try:
@@ -196,32 +240,3 @@ class ApiClient:
                     except (TypeError, ValueError):
                         continue
         return ClusterStateResponse(centroids=centroids, raw=payload)
-
-    def _parse_metrics_latest(
-        self, payload: dict[str, object]
-    ) -> MetricsLatestResponse:
-        latest = payload.get("latest")
-        model_payload: dict[str, object] = {}
-        model_name = None
-        if isinstance(latest, dict) and latest:
-            model_name, model_payload = next(iter(latest.items()))
-            if not isinstance(model_payload, dict):
-                model_payload = {}
-        silhouette = model_payload.get("silhouette_score")
-        noise_ratio = model_payload.get("noise_ratio")
-        active_clusters = model_payload.get("number_of_clusters")
-        if active_clusters is None:
-            active_clusters = model_payload.get("active_clusters")
-        return MetricsLatestResponse(
-            silhouette_score=float(silhouette)
-            if isinstance(silhouette, (int, float))
-            else None,
-            active_clusters=int(active_clusters)
-            if isinstance(active_clusters, (int, float))
-            else 0,
-            noise_ratio=float(noise_ratio)
-            if isinstance(noise_ratio, (int, float))
-            else 0.0,
-            model_name=model_name,
-            raw=payload,
-        )
