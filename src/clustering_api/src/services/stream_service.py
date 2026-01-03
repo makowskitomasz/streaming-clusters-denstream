@@ -33,6 +33,7 @@ class StreamService:
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._centroids = self._initialize_centroids(self._n_clusters)
         self._batch_id = 0
+        self._paused = False
 
     @property
     def batch_id(self) -> int:
@@ -178,6 +179,11 @@ class StreamService:
         """Reset stream to initial state (batch counter and centroids)."""
         self._batch_id = 0
         self._centroids = self._initialize_centroids(self._n_clusters)
+        self._paused = False
+
+    def pause_stream(self):
+        """Pause the stream (state-only flag)."""
+        self._paused = True
 
     def get_state(self) -> dict:
         """Return current configuration and state."""
@@ -188,6 +194,7 @@ class StreamService:
             "drift": self._drift,
             "batch_id": self._batch_id,
             "centroids": self._centroids.tolist(),
+            "paused": self._paused,
         }
 
     def _total_points_per_batch(self) -> int:
