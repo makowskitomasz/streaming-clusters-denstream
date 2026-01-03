@@ -33,3 +33,6 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t streaming-clusters-denstream:ci -f docker/api/Dockerfile .
+
+      - name: Build Frontend Docker image
+        run: docker build -t streaming-clusters-denstream-frontend:ci -f docker/frontend/Dockerfile .
