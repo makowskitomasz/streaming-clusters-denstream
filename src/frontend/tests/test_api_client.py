@@ -2,7 +2,6 @@ import json
 
 import httpx
 import pytest
-
 from frontend.api_client import ApiClient, BackendError, StreamParams
 
 

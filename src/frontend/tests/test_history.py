@@ -1,6 +1,5 @@
 import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
-
 from frontend.history import CentroidSnapshot, append_history, compute_centroids_from_points
 from frontend.plotting import build_centroid_trajectories
 

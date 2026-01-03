@@ -6,7 +6,6 @@ from time import perf_counter, time
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
-
 from frontend.api_client import (
     ApiClient,
     BackendError,
