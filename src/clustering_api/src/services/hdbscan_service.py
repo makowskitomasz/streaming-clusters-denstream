@@ -7,6 +7,7 @@ import numpy as np
 
 # Requires hdbscan and scikit-learn to be installed in the environment.
 from hdbscan import HDBSCAN
+from loguru import logger
 
 from clustering_api.src.services.metrics_service import MetricsService, metrics_service
 
@@ -93,6 +94,13 @@ class HdbscanService:
         n_samples = int(data.shape[0])
         self._append_history(batch_id=batch_id, n_samples=n_samples)
         if n_samples == 0:
+            self._log_batch_stats(
+                n_samples=0,
+                number_of_clusters=0,
+                noise_ratio=0.0,
+                batch_id=batch_id,
+                latency_ms=0.0,
+            )
             return HdbscanBatchResult(
                 labels=[],
                 number_of_clusters=0,
@@ -103,6 +111,7 @@ class HdbscanService:
                 n_samples=0,
             )
 
+        start = time.perf_counter()
         clusterer = self._build_clusterer()
         labels = self._fit_predict(clusterer, data)
         metrics_record = self._metrics.evaluate(
@@ -110,6 +119,13 @@ class HdbscanService:
             labels,
             model_name="hdbscan",
             batch_id=batch_id,
+        )
+        self._log_batch_stats(
+            n_samples=metrics_record.n_samples,
+            number_of_clusters=metrics_record.number_of_clusters,
+            noise_ratio=metrics_record.noise_ratio,
+            batch_id=metrics_record.batch_id,
+            latency_ms=(time.perf_counter() - start) * 1000,
         )
         return HdbscanBatchResult(
             labels=labels.tolist(),
@@ -192,3 +208,24 @@ class HdbscanService:
             raise ValueError("history_size must be greater than 0")
         if random_state is not None and random_state < 0:
             raise ValueError("random_state must be non-negative when provided")
+
+    def _log_batch_stats(
+        self,
+        *,
+        n_samples: int,
+        number_of_clusters: int,
+        noise_ratio: float,
+        batch_id: str | None,
+        latency_ms: float,
+    ) -> None:
+        logger.bind(
+            event="clustering_batch",
+            model_name="hdbscan",
+            batch_id=batch_id,
+            n_samples=n_samples,
+            active_clusters=number_of_clusters,
+            avg_density=None,
+            noise_ratio=noise_ratio,
+            latency_ms=latency_ms,
+            timestamp=time.time(),
+        ).info("HDBSCAN batch processed")

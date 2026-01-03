@@ -1,3 +1,5 @@
+from loguru import logger
+
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint
 from clustering_api.src.services.denstream_service import DenStreamService
@@ -72,3 +74,36 @@ def test_metrics_stored_after_denstream_update():
     assert latest is not None
     assert latest.batch_id == 7
     assert latest.n_samples == 1
+
+
+def test_denstream_logs_batch_stats(monkeypatch):
+    dummy = DummyClusterer()
+    dummy.clusters_output = {
+        "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=2, density=0.6)],
+        "decayed": [],
+    }
+    metrics = MetricsService()
+    service = DenStreamService(clusterer=dummy, metrics=metrics)
+
+    captured = {}
+
+    def fake_bind(**kwargs):
+        captured.update(kwargs)
+
+        class _Logger:
+            def info(self, _msg):
+                return None
+
+        return _Logger()
+
+    monkeypatch.setattr(logger, "bind", fake_bind)
+
+    payload = [ClusterPoint(x=0.1, y=0.2, batch_id=4)]
+    service.update_clusters(payload)
+
+    assert captured["event"] == "clustering_batch"
+    assert captured["model_name"] == "denstream"
+    assert captured["n_samples"] == 1
+    assert captured["active_clusters"] == 1
+    assert captured["avg_density"] == 0.6
+    assert "latency_ms" in captured

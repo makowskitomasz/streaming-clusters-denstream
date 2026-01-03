@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from loguru import logger
 from sklearn.datasets import make_blobs
 
 from clustering_api.src.services.hdbscan_service import HdbscanService
@@ -137,3 +138,39 @@ def test_metrics_stored_after_cluster_batch():
     assert latest.batch_id == "batch-metrics"
     assert latest.n_samples == len(result.labels)
     assert latest.number_of_clusters == result.number_of_clusters
+
+
+def test_hdbscan_logs_batch_stats(monkeypatch):
+    # Arrange
+    features = np.array([[0.0, 0.0], [1.0, 1.0], [5.0, 5.0]])
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=2, metrics=metrics)
+    forced_labels = np.array([0, 0, -1])
+
+    def fake_fit_predict(_clusterer, _data):
+        return forced_labels
+
+    captured = {}
+
+    def fake_bind(**kwargs):
+        captured.update(kwargs)
+
+        class _Logger:
+            def info(self, _msg):
+                return None
+
+        return _Logger()
+
+    monkeypatch.setattr(service, "_fit_predict", fake_fit_predict)
+    monkeypatch.setattr(logger, "bind", fake_bind)
+
+    # Act
+    service.cluster_batch(features, batch_id="hdb-1")
+
+    # Assert
+    assert captured["event"] == "clustering_batch"
+    assert captured["model_name"] == "hdbscan"
+    assert captured["n_samples"] == 3
+    assert captured["active_clusters"] == 1
+    assert captured["noise_ratio"] == pytest.approx(1 / 3)
+    assert "latency_ms" in captured
