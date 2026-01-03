@@ -112,6 +112,69 @@ class MetricsLatestResponse:
         )
 
 
+@dataclass(frozen=True)
+class LogRecord:
+    """Normalized backend log entry."""
+
+    timestamp: str | None
+    batch_id: int | str | None
+    model_name: str | None
+    active_clusters: int | None
+    noise_ratio: float | None
+    silhouette_score: float | None
+    drift_magnitude: float | None
+    latency_ms: float | None
+    message: str | None
+    raw: dict[str, object]
+
+    @classmethod
+    def from_payload(cls, payload: object) -> "LogRecord":
+        if not isinstance(payload, dict):
+            return cls(
+                timestamp=None,
+                batch_id=None,
+                model_name=None,
+                active_clusters=None,
+                noise_ratio=None,
+                silhouette_score=None,
+                drift_magnitude=None,
+                latency_ms=None,
+                message=None,
+                raw={},
+            )
+        timestamp = payload.get("timestamp")
+        message = payload.get("message")
+        batch_id = payload.get("batch_id")
+        model_name = payload.get("model_name")
+        active_clusters = payload.get("active_clusters")
+        noise_ratio = payload.get("noise_ratio")
+        silhouette_score = payload.get("silhouette_score")
+        drift_magnitude = payload.get("drift_magnitude")
+        latency_ms = payload.get("latency_ms")
+        return cls(
+            timestamp=str(timestamp) if timestamp is not None else None,
+            batch_id=batch_id if isinstance(batch_id, (int, str)) else None,
+            model_name=str(model_name) if model_name is not None else None,
+            active_clusters=int(active_clusters)
+            if isinstance(active_clusters, (int, float))
+            else None,
+            noise_ratio=float(noise_ratio)
+            if isinstance(noise_ratio, (int, float))
+            else None,
+            silhouette_score=float(silhouette_score)
+            if isinstance(silhouette_score, (int, float))
+            else None,
+            drift_magnitude=float(drift_magnitude)
+            if isinstance(drift_magnitude, (int, float))
+            else None,
+            latency_ms=float(latency_ms)
+            if isinstance(latency_ms, (int, float))
+            else None,
+            message=str(message) if message is not None else None,
+            raw=payload,
+        )
+
+
 class ApiClient:
     """Minimal HTTP client for the Streamlit frontend."""
 
@@ -156,6 +219,13 @@ class ApiClient:
     def get_latest_metrics(self) -> MetricsLatestResponse:
         data = self._request("GET", "/v1/metrics/latest")
         return MetricsLatestResponse.from_payload(data)
+
+    def get_recent_logs(self, limit: int = 200) -> list[LogRecord]:
+        data = self._request("GET", f"/v1/logs/recent?limit={limit}")
+        raw_logs = data.get("logs", [])
+        if not isinstance(raw_logs, list):
+            return []
+        return [LogRecord.from_payload(item) for item in raw_logs]
 
     def ping(self) -> bool:
         try:

@@ -4,6 +4,8 @@ import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 from plotly import colors as plotly_colors
 
+from frontend.api_client import LogRecord
+
 
 def build_cluster_scatter(
     points: list[tuple[float, float]],
@@ -116,6 +118,39 @@ def build_centroid_trajectories(
         legend=dict(orientation="v"),
         uirevision="centroid-trajectories",
         height=500,
+        margin=dict(l=20, r=20, t=40, b=20),
+    )
+    return fig
+
+
+def build_logs_timeline(logs: list[LogRecord], series: str) -> go.Figure:
+    """Build a timeline chart for a selected log metric."""
+    fig = go.Figure()
+    if not logs:
+        fig.update_layout(title="Performance timeline")
+        return fig
+    xs = []
+    ys = []
+    for idx, log in enumerate(logs):
+        x_value = log.timestamp or log.batch_id or idx
+        value = getattr(log, series, None)
+        if value is None:
+            continue
+        xs.append(x_value)
+        ys.append(value)
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=ys,
+            mode="lines+markers",
+            name=series,
+        )
+    )
+    fig.update_layout(
+        title="Performance timeline",
+        xaxis_title="timestamp",
+        yaxis_title=series,
+        height=260,
         margin=dict(l=20, r=20, t=40, b=20),
     )
     return fig

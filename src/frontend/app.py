@@ -17,7 +17,11 @@ from frontend.api_client import (
     StreamPoint,
 )
 from frontend.history import CentroidSnapshot, append_history, compute_centroids_from_points
-from frontend.plotting import build_centroid_trajectories, build_cluster_scatter
+from frontend.plotting import (
+    build_centroid_trajectories,
+    build_cluster_scatter,
+    build_logs_timeline,
+)
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:
@@ -78,6 +82,12 @@ def _init_state() -> None:
         st.session_state.centroid_history = []
     if "max_history_points" not in st.session_state:
         st.session_state.max_history_points = 200
+    if "recent_logs" not in st.session_state:
+        st.session_state.recent_logs = []
+    if "logs_last_error" not in st.session_state:
+        st.session_state.logs_last_error = None
+    if "logs_last_refresh_ts" not in st.session_state:
+        st.session_state.logs_last_refresh_ts = None
     if "logs" not in st.session_state:
         st.session_state.logs = []
     if "backend_status" not in st.session_state:
@@ -106,6 +116,9 @@ def _reset_state() -> None:
     st.session_state.metrics_history = []
     st.session_state.centroid_history = []
     st.session_state.max_history_points = 200
+    st.session_state.recent_logs = []
+    st.session_state.logs_last_error = None
+    st.session_state.logs_last_refresh_ts = None
     st.session_state.logs = []
     st.session_state.backend_status = "Disconnected"
     st.session_state.use_backend = False
@@ -249,6 +262,22 @@ def _record_centroid_history(
         snapshot,
         max_history,
     )
+
+
+def _refresh_logs(client: ApiClient, limit: int) -> None:
+    if not st.session_state.use_backend:
+        st.session_state.recent_logs = []
+        st.session_state.logs_last_error = None
+        return
+    try:
+        logs = client.get_recent_logs(limit=limit)
+        st.session_state.recent_logs = logs
+        st.session_state.logs_last_error = None
+        st.session_state.logs_last_refresh_ts = datetime.utcnow().isoformat(
+            timespec="seconds"
+        )
+    except BackendError as exc:
+        st.session_state.logs_last_error = str(exc)
 
 
 def _append_log_entry(
@@ -487,7 +516,7 @@ def main() -> None:
     if st.session_state.use_backend and mock_mode:
         st.info("Mock mode is disabled while backend mode is active.")
 
-    tabs = st.tabs(["Current State", "History View"])
+    tabs = st.tabs(["Current State", "History View", "Logs"])
     with tabs[0]:
         left, right = st.columns([3, 1])
         with left:
@@ -557,6 +586,58 @@ def main() -> None:
                 for cluster_id, centroid in latest.centroids.items()
             ]
             st.dataframe(pd.DataFrame(table_rows), use_container_width=True, height=220)
+
+    with tabs[2]:
+        st.subheader("Logs & Timeline")
+        log_limit = st.slider("log_limit", 50, 1000, 200, step=50)
+        auto_refresh_logs = st.checkbox(
+            "Auto-refresh logs when running", value=True
+        )
+        if st.button("Refresh logs"):
+            _refresh_logs(client, log_limit)
+
+        if st.session_state.running and auto_refresh_logs:
+            _refresh_logs(client, log_limit)
+
+        if st.session_state.logs_last_error:
+            st.warning(st.session_state.logs_last_error)
+
+        logs = st.session_state.recent_logs
+        if logs:
+            series = st.selectbox(
+                "timeline_metric",
+                ["latency_ms", "active_clusters", "noise_ratio", "silhouette_score"],
+            )
+            fig = build_logs_timeline(logs, series)
+            st.plotly_chart(fig, use_container_width=True)
+
+            rows = []
+            for log in logs:
+                noise_percent = (
+                    f"{(log.noise_ratio or 0.0) * 100:.1f}%"
+                    if log.noise_ratio is not None
+                    else "—"
+                )
+                rows.append(
+                    {
+                        "timestamp": log.timestamp,
+                        "batch_id": log.batch_id,
+                        "active_clusters": log.active_clusters,
+                        "latency_ms": log.latency_ms,
+                        "noise_ratio": noise_percent,
+                        "silhouette_score": log.silhouette_score,
+                        "drift_magnitude": log.drift_magnitude,
+                        "message": log.message,
+                    }
+                )
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, height=260)
+
+            raw_messages = "\n".join(
+                f"{log.timestamp} | {log.message}" for log in logs if log.message
+            )
+            st.text_area("raw_logs", raw_messages, height=180)
+        else:
+            st.info("No logs available.")
 
     st.caption(f"Refresh interval setting: {refresh_interval} seconds")
 

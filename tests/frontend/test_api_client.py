@@ -87,3 +87,24 @@ def test_get_latest_metrics_parsing():
     assert metrics.model_name == "denstream"
     assert metrics.active_clusters == 3
     assert metrics.noise_ratio == 0.1
+
+
+def test_get_recent_logs_parsing():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "logs": [
+                    {"timestamp": "t1", "message": "m1", "latency_ms": 12.3},
+                    {"timestamp": "t2", "message": "m2", "latency_ms": 10.0},
+                ]
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    client = ApiClient(base_url="http://example.com", transport=transport)
+
+    logs = client.get_recent_logs(limit=2)
+
+    assert len(logs) == 2
+    assert logs[0].message == "m1"
