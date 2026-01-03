@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class DataPoint(BaseModel):
@@ -22,7 +22,8 @@ class ClusterPoint(BaseModel):
     timestamp: float | None = None
     weight: float = 1.0
 
-    @validator("weight")
+    @field_validator("weight")
+    @classmethod
     def _non_negative_weight(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("ClusterPoint weight must be positive")
@@ -39,15 +40,15 @@ class Cluster(BaseModel):
     status: Literal["active", "decayed"] = "active"
     points: list[ClusterPoint] = Field(default_factory=list)
 
-    @validator("centroid")
+    @field_validator("centroid")
     def _centroid_length(cls, value: tuple[float, float]) -> tuple[float, float]:
         if len(value) != 2:
             raise ValueError("Centroid must be a 2D coordinate")
         return value
 
-    @validator("points", always=True)
-    def _size_consistency(cls, points: list[ClusterPoint], values):
-        expected_size = values.get("size")
+    @field_validator("points")
+    def _size_consistency(cls, points: list[ClusterPoint], info):
+        expected_size = info.data.get("size") if info.data else None
         if expected_size is None:
             return points
         if points and expected_size < len(points):
