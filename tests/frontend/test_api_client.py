@@ -3,12 +3,12 @@ import json
 import httpx
 import pytest
 
-from frontend.api_client import ApiClient, BackendUnavailableError, StreamParams
+from frontend.api_client import ApiClient, BackendError, StreamParams
 
 
 def test_start_stream_payload():
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == httpx.URL("http://example.com/stream/start")
+        assert request.url == httpx.URL("http://example.com/v1/stream/start")
         payload = json.loads(request.content.decode("utf-8"))
         assert payload == {
             "batch_size": 500,
@@ -33,5 +33,57 @@ def test_missing_endpoint_raises():
     transport = httpx.MockTransport(handler)
     client = ApiClient(base_url="http://example.com", transport=transport)
 
-    with pytest.raises(BackendUnavailableError):
+    with pytest.raises(BackendError):
         client.reset_stream()
+
+
+def test_next_batch_fallback():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if str(request.url).endswith("/v1/stream/next"):
+            return httpx.Response(404, json={"detail": "Not Found"})
+        return httpx.Response(
+            200,
+            json={
+                "batch_id": 3,
+                "points": [{"x": 1.0, "y": 2.0, "cluster_id": "1"}],
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    client = ApiClient(base_url="http://example.com", transport=transport)
+    params = StreamParams(batch_size=50, drift_rate=0.1, update_interval_seconds=2)
+
+    response = client.next_batch(params)
+
+    assert response.batch_id == 3
+    assert len(response.points) == 1
+    assert calls[0].endswith("/v1/stream/next")
+    assert calls[1].endswith("/v1/stream/generate-cluster-points")
+
+
+def test_get_latest_metrics_parsing():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "latest": {
+                    "denstream": {
+                        "silhouette_score": 0.4,
+                        "number_of_clusters": 3,
+                        "noise_ratio": 0.1,
+                    }
+                }
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    client = ApiClient(base_url="http://example.com", transport=transport)
+
+    metrics = client.get_latest_metrics()
+
+    assert metrics.model_name == "denstream"
+    assert metrics.active_clusters == 3
+    assert metrics.noise_ratio == 0.1

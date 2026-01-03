@@ -11,7 +11,13 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]
 import streamlit as st
 from plotly import colors as plotly_colors
 
-from frontend.api_client import ApiClient, BackendUnavailableError, StreamParams
+from frontend.api_client import (
+    ApiClient,
+    BackendError,
+    MetricsLatestResponse,
+    StreamParams,
+    StreamPoint,
+)
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:
@@ -158,30 +164,27 @@ def _compute_metrics(
     }
 
 
-def _extract_points_from_response(
-    payload: dict[str, object]
+def _points_from_batch(
+    points: list[StreamPoint],
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    if "points" not in payload:
-        return None
-    raw_points = payload.get("points", [])
-    if not isinstance(raw_points, list):
-        return None
-    points = []
-    labels = []
-    for item in raw_points:
-        if not isinstance(item, dict):
-            continue
-        if "x" not in item or "y" not in item:
-            continue
-        points.append([float(item["x"]), float(item["y"])])
-        cluster_id = item.get("cluster_id", -1)
-        try:
-            labels.append(int(cluster_id))
-        except (TypeError, ValueError):
-            labels.append(-1)
     if not points:
         return None
-    return np.asarray(points), np.asarray(labels, dtype=int)
+    coords = np.asarray([[point.x, point.y] for point in points], dtype=float)
+    labels = []
+    for point in points:
+        if point.cluster_id is None or point.noise:
+            labels.append(-1)
+        else:
+            labels.append(point.cluster_id)
+    return coords, np.asarray(labels, dtype=int)
+
+
+def _apply_metrics(metrics: MetricsLatestResponse) -> None:
+    st.session_state.metrics = {
+        "silhouette_score": metrics.silhouette_score,
+        "active_clusters": metrics.active_clusters,
+        "noise_ratio": metrics.noise_ratio,
+    }
 
 
 def _build_plot(
@@ -238,14 +241,18 @@ def _build_plot(
 
 def _append_log_entry(
     *,
+    action: str,
     batch_id: int,
     n_samples: int,
     active_clusters: int,
     noise_ratio: float,
     latency_ms: float,
+    status: str = "success",
 ) -> None:
     entry = {
         "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+        "action": action,
+        "status": status,
         "batch_id": batch_id,
         "n_samples": n_samples,
         "active_clusters": active_clusters,
@@ -275,6 +282,7 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
     active_clusters = int(metrics["active_clusters"] or 0)
     noise_ratio = float(metrics["noise_ratio"] or 0.0)
     _append_log_entry(
+        action="mock_next_batch",
         batch_id=st.session_state.batch_id,
         n_samples=int(points.shape[0]),
         active_clusters=active_clusters,
@@ -288,21 +296,30 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
     start = perf_counter()
     response = client.next_batch(params)
     latency_ms = (perf_counter() - start) * 1000
-    parsed = _extract_points_from_response(response) if response else None
+    parsed = _points_from_batch(response.points)
     if parsed:
         points, labels = parsed
         st.session_state.points = points
         st.session_state.labels = labels
         st.session_state.centroids = np.array([])
         st.session_state.metrics = _compute_metrics(points, labels)
-    st.session_state.batch_id += 1
+    state = client.get_current_state()
+    if state.centroids:
+        st.session_state.centroids = np.asarray(list(state.centroids.values()))
+    metrics = client.get_latest_metrics()
+    _apply_metrics(metrics)
+    if response.batch_id is not None:
+        st.session_state.batch_id = response.batch_id
+    else:
+        st.session_state.batch_id += 1
     st.session_state.backend_status = "Connected"
-    metrics = st.session_state.metrics
+    metrics_state = st.session_state.metrics
     _append_log_entry(
+        action="live_next_batch",
         batch_id=st.session_state.batch_id,
         n_samples=int(st.session_state.points.shape[0]),
-        active_clusters=int(metrics["active_clusters"] or 0),
-        noise_ratio=float(metrics["noise_ratio"] or 0.0),
+        active_clusters=int(metrics_state["active_clusters"] or 0),
+        noise_ratio=float(metrics_state["noise_ratio"] or 0.0),
         latency_ms=latency_ms,
     )
 
@@ -316,18 +333,17 @@ def _call_backend(
     try:
         if action == "start":
             client.start_stream(params)
-        elif action == "pause":
-            client.pause_stream()
         elif action == "reset":
             client.reset_stream()
         else:
             return False, "Unsupported action"
-    except BackendUnavailableError as exc:
+    except BackendError as exc:
         st.session_state.backend_status = f"Error: {exc}"
         return False, str(exc)
     latency_ms = (perf_counter() - start) * 1000
     st.session_state.backend_status = "Connected"
     _append_log_entry(
+        action=f"backend_{action}",
         batch_id=st.session_state.batch_id,
         n_samples=int(st.session_state.points.shape[0]),
         active_clusters=int(st.session_state.metrics["active_clusters"] or 0),
@@ -357,7 +373,7 @@ def main() -> None:
         refresh_interval = params_form.slider("update_interval_seconds", 1, 10, 3)
         apply_params = params_form.form_submit_button("Apply")
         use_backend = st.checkbox(
-            "Use backend", value=st.session_state.use_backend
+            "Use backend (Live mode)", value=st.session_state.use_backend
         )
         st.session_state.use_backend = use_backend
         mock_mode = st.checkbox(
@@ -393,16 +409,8 @@ def main() -> None:
             st.session_state.running = True
             st.success("Stream started in mock mode.")
     if pause:
-        if st.session_state.use_backend:
-            ok, message = _call_backend("pause", params, client)
-            if ok:
-                st.session_state.running = False
-                st.info("Stream paused.")
-            else:
-                st.error(message)
-        else:
-            st.session_state.running = False
-            st.info("Stream paused locally.")
+        st.session_state.running = False
+        st.info("Stream paused locally.")
     if reset:
         if st.session_state.use_backend:
             ok, message = _call_backend("reset", params, client)
@@ -419,7 +427,7 @@ def main() -> None:
             try:
                 _next_batch_backend(params, client)
                 st.success("Fetched next batch from backend.")
-            except BackendUnavailableError as exc:
+            except BackendError as exc:
                 st.error(str(exc))
         else:
             _next_batch(batch_size, drift_rate)
@@ -429,7 +437,7 @@ def main() -> None:
         if st.session_state.use_backend:
             try:
                 _next_batch_backend(params, client)
-            except BackendUnavailableError as exc:
+            except BackendError as exc:
                 st.error(str(exc))
                 st.session_state.running = False
         else:

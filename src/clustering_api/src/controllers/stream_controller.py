@@ -70,3 +70,10 @@ def reset_stream():
     """Reset stream (batch counter and centroids)."""
     stream_service.reset_stream()
     return {"message": "Stream reset successfully", "state": stream_service.get_state()}
+
+
+@router.post("/pause", summary="Pause the stream")
+def pause_stream():
+    """Pause stream (state-only flag)."""
+    stream_service.pause_stream()
+    return {"message": "Stream paused successfully", "state": stream_service.get_state()}
