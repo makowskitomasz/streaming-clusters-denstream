@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, cast
+from typing import List, Optional, cast
 
 import numpy as np
 import pandas as pd

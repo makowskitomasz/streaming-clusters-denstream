@@ -1,6 +1,7 @@
 import sys
 
 from loguru import logger
+
 LOG_FORMAT = (
     "<green>{time:HH:mm:ss}</green> | "
     "<level>{level: <8}</level> | "

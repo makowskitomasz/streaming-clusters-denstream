@@ -4,7 +4,11 @@ from typing import Iterator, List, Optional, Tuple
 
 import pandas as pd
 
-from clustering_api.src.models.data_models import DataPoint, ClusterPoint, map_datapoint_to_clusterpoint
+from clustering_api.src.models.data_models import (
+    ClusterPoint,
+    DataPoint,
+    map_datapoint_to_clusterpoint,
+)
 
 
 class NycTaxiService:

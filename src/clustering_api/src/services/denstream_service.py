@@ -37,7 +37,7 @@ class DenStreamService:
         batch_list = list(batch)
         if not batch_list:
             return self.get_current_clusters()
-        self._clusterer.update(batch_list)
+        self.clusterer.update(batch_list)
         return self._refresh_cache()
 
     def get_current_clusters(self) -> dict[str, list[Cluster]]:
@@ -53,7 +53,7 @@ class DenStreamService:
                 self._config[key] = value
                 updated = True
         if updated:
-            self._clusterer = self._factory(**self._config)
+            self.clusterer = self._factory(**self._config)
             self._active_clusters = []
             self._decayed_clusters = []
         return dict(self._config)

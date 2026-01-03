@@ -31,7 +31,7 @@ dev = [
 
 [tool.ruff]
 # select = ["ALL"]
-extend-select = ["UP007", "I"]
+lint.extend-select = ["UP007", "I"]
 line-length = 100
 
 [tool.ruff.format]

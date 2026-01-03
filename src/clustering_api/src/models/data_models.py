@@ -1,6 +1,6 @@
-from typing import List, Literal, Optional, Tuple
+from __future__ import annotations
 
-from typing import Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -50,8 +50,8 @@ class Cluster(BaseModel):
         return value
 
     @field_validator("points")
-    def _size_consistency(cls, points: list[ClusterPoint], values):
-        expected_size = values.get("size")
+    def _size_consistency(cls, points: list[ClusterPoint], info):
+        expected_size = info.data.get("size") if info.data else None
         if expected_size is None:
             return points
         if points and expected_size < len(points):
