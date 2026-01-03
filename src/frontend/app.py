@@ -5,7 +5,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 import plotly.graph_objects as go  # type: ignore[import-untyped]
-import streamlit as st  # type: ignore[import-untyped]
+import streamlit as st
 from plotly import colors as plotly_colors
 
 
@@ -96,7 +96,8 @@ def _generate_mock_batch(
         points_array = np.empty((0, 2))
         labels_array = np.array([], dtype=int)
 
-    shuffle = rng.permutation(points_array.shape[0]) if points_array.size else []
+    shuffle: np.ndarray
+    shuffle = rng.permutation(points_array.shape[0]) if points_array.size else np.array([])
     return points_array[shuffle], labels_array[shuffle], centroids
 
 
@@ -107,7 +108,7 @@ def _compute_metrics(points: np.ndarray, labels: np.ndarray) -> dict[str, float 
     silhouette = None
     if points.shape[0] > 1 and active_clusters > 1:
         try:
-            from sklearn.metrics import silhouette_score
+            from sklearn.metrics import silhouette_score  # type: ignore[import-untyped]
 
             silhouette = float(silhouette_score(points, labels))
         except Exception:
@@ -207,11 +208,13 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
     st.session_state.centroids = centroids
     st.session_state.metrics = metrics
 
+    active_clusters = int(metrics["active_clusters"] or 0)
+    noise_ratio = float(metrics["noise_ratio"] or 0.0)
     _append_log_entry(
         batch_id=st.session_state.batch_id,
         n_samples=int(points.shape[0]),
-        active_clusters=int(metrics["active_clusters"]),
-        noise_ratio=float(metrics["noise_ratio"]),
+        active_clusters=active_clusters,
+        noise_ratio=noise_ratio,
         latency_ms=latency_ms,
     )
     st.session_state.batch_id += 1
