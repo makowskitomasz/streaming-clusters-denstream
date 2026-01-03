@@ -27,6 +27,7 @@ class ClusterPoint(BaseModel):
     noise: Optional[bool] = None
 
     @field_validator("weight")
+    @classmethod
     def _non_negative_weight(cls, value: float) -> float:
         if value <= 0:
             raise ValueError("ClusterPoint weight must be positive")
