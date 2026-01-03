@@ -4,7 +4,6 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-
 from hdbscan import HDBSCAN
 from loguru import logger
 
