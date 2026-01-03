@@ -1,4 +1,4 @@
-name: CI
+name: Frontend CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: ["*"]
 
 jobs:
-  ci:
+  frontend-ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,11 +25,11 @@ jobs:
       - name: Sync dependencies (with dev group)
         run: uv sync --group dev
 
+      - name: Format
+        run: make format
+
       - name: Lint
         run: make lint
 
       - name: Run Tests
         run: make test
-
-      - name: Build Docker image
-        run: docker build -t streaming-clusters-denstream:ci -f docker/api/Dockerfile .

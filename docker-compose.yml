@@ -2,8 +2,14 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/api/Dockerfile
     ports:
       - "8000:8000"
     environment:
       PYTHONUNBUFFERED: "1"
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    ports:
+      - "8501:8501"
