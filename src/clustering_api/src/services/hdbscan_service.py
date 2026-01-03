@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# Requires hdbscan and scikit-learn to be installed in the environment.
 from hdbscan import HDBSCAN
 from loguru import logger
 
