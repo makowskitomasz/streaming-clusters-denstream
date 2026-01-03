@@ -3,6 +3,7 @@ import pytest
 from sklearn.datasets import make_blobs
 
 from clustering_api.src.services.hdbscan_service import HdbscanService
+from clustering_api.src.services.metrics_service import MetricsService
 
 
 def test_cluster_batch_returns_labels_length():
@@ -10,7 +11,8 @@ def test_cluster_batch_returns_labels_length():
     features, _ = make_blobs(
         n_samples=60, centers=2, cluster_std=0.3, random_state=7
     )
-    service = HdbscanService(min_cluster_size=5, random_state=7)
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=5, random_state=7, metrics=metrics)
 
     # Act
     result = service.cluster_batch(features, batch_id="batch-1")
@@ -27,7 +29,8 @@ def test_metrics_exclude_noise():
     rng = np.random.default_rng(42)
     noise = rng.uniform(-6, 6, size=(12, 2))
     batch = np.vstack([features, noise])
-    service = HdbscanService(min_cluster_size=5, random_state=42)
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=5, random_state=42, metrics=metrics)
 
     # Act
     result = service.cluster_batch(batch, batch_id="batch-2")
@@ -46,7 +49,8 @@ def test_silhouette_none_with_single_cluster(monkeypatch):
     features, _ = make_blobs(
         n_samples=40, centers=1, cluster_std=0.2, random_state=1
     )
-    service = HdbscanService(min_cluster_size=5, random_state=1)
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=5, random_state=1, metrics=metrics)
     forced_labels = np.zeros(len(features), dtype=int)
 
     def fake_fit_predict(_clusterer, _data):
@@ -66,7 +70,8 @@ def test_silhouette_none_all_noise():
     # Arrange
     rng = np.random.default_rng(3)
     features = rng.normal(0, 1, size=(5, 2))
-    service = HdbscanService(min_cluster_size=10, random_state=3)
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=10, random_state=3, metrics=metrics)
 
     # Act
     result = service.cluster_batch(features)
@@ -80,7 +85,8 @@ def test_silhouette_none_all_noise():
 def test_empty_batch_handled_gracefully():
     # Arrange
     features = np.empty((0, 2))
-    service = HdbscanService()
+    metrics = MetricsService()
+    service = HdbscanService(metrics=metrics)
 
     # Act
     result = service.cluster_batch(features)
@@ -98,7 +104,8 @@ def test_history_size_cap():
     features, _ = make_blobs(
         n_samples=20, centers=2, cluster_std=0.2, random_state=5
     )
-    service = HdbscanService(history_size=2, random_state=5)
+    metrics = MetricsService()
+    service = HdbscanService(history_size=2, random_state=5, metrics=metrics)
 
     # Act
     service.cluster_batch(features, batch_id="batch-a")
@@ -111,3 +118,22 @@ def test_history_size_cap():
     assert len(history) == 2
     assert history[0].batch_id == "batch-b"
     assert history[1].batch_id == "batch-c"
+
+
+def test_metrics_stored_after_cluster_batch():
+    # Arrange
+    features, _ = make_blobs(
+        n_samples=30, centers=2, cluster_std=0.4, random_state=11
+    )
+    metrics = MetricsService()
+    service = HdbscanService(min_cluster_size=5, random_state=11, metrics=metrics)
+
+    # Act
+    result = service.cluster_batch(features, batch_id="batch-metrics")
+    latest = metrics.get_latest("hdbscan")
+
+    # Assert
+    assert latest is not None
+    assert latest.batch_id == "batch-metrics"
+    assert latest.n_samples == len(result.labels)
+    assert latest.number_of_clusters == result.number_of_clusters
