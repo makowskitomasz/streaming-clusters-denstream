@@ -16,7 +16,8 @@ from frontend.api_client import (
     StreamParams,
     StreamPoint,
 )
-from frontend.plotting import build_cluster_scatter
+from frontend.history import CentroidSnapshot, append_history, compute_centroids_from_points
+from frontend.plotting import build_centroid_trajectories, build_cluster_scatter
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:
@@ -73,6 +74,10 @@ def _init_state() -> None:
         st.session_state.latest_metrics = None
     if "metrics_history" not in st.session_state:
         st.session_state.metrics_history = []
+    if "centroid_history" not in st.session_state:
+        st.session_state.centroid_history = []
+    if "max_history_points" not in st.session_state:
+        st.session_state.max_history_points = 200
     if "logs" not in st.session_state:
         st.session_state.logs = []
     if "backend_status" not in st.session_state:
@@ -99,6 +104,8 @@ def _reset_state() -> None:
     }
     st.session_state.latest_metrics = None
     st.session_state.metrics_history = []
+    st.session_state.centroid_history = []
+    st.session_state.max_history_points = 200
     st.session_state.logs = []
     st.session_state.backend_status = "Disconnected"
     st.session_state.use_backend = False
@@ -224,6 +231,26 @@ def _build_plot_data() -> tuple[list[tuple[float, float]], list[int], dict[int, 
     return points_list, labels_list, centroid_map
 
 
+def _record_centroid_history(
+    *,
+    batch_id: int,
+    centroid_map: dict[int, tuple[float, float]],
+    max_history: int,
+) -> None:
+    if not centroid_map:
+        return
+    snapshot = CentroidSnapshot(
+        batch_id=batch_id,
+        timestamp=datetime.utcnow().isoformat(timespec="seconds"),
+        centroids=centroid_map,
+    )
+    st.session_state.centroid_history = append_history(
+        st.session_state.centroid_history,
+        snapshot,
+        max_history,
+    )
+
+
 def _append_log_entry(
     *,
     action: str,
@@ -266,6 +293,16 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
 
     active_clusters = int(metrics["active_clusters"] or 0)
     noise_ratio = float(metrics["noise_ratio"] or 0.0)
+    centroid_map = {
+        idx: (float(item[0]), float(item[1]))
+        for idx, item in enumerate(centroids.tolist())
+        if len(item) == 2
+    }
+    _record_centroid_history(
+        batch_id=st.session_state.batch_id,
+        centroid_map=centroid_map,
+        max_history=st.session_state.max_history_points,
+    )
     _append_log_entry(
         action="mock_next_batch",
         batch_id=st.session_state.batch_id,
@@ -291,6 +328,12 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
     state = client.get_current_state()
     if state.centroids:
         st.session_state.centroids = np.asarray(list(state.centroids.values()))
+        centroid_map = state.centroids
+    else:
+        centroid_map = compute_centroids_from_points(
+            st.session_state.points,
+            st.session_state.labels,
+        )
     try:
         metrics = client.get_latest_metrics()
         _apply_metrics(metrics)
@@ -302,6 +345,11 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
         st.session_state.batch_id += 1
     st.session_state.backend_status = "Connected"
     metrics_state = st.session_state.metrics
+    _record_centroid_history(
+        batch_id=st.session_state.batch_id,
+        centroid_map=centroid_map,
+        max_history=st.session_state.max_history_points,
+    )
     _append_log_entry(
         action="live_next_batch",
         batch_id=st.session_state.batch_id,
@@ -367,6 +415,10 @@ def main() -> None:
         mock_mode = st.checkbox(
             "Mock mode", value=not use_backend, disabled=use_backend
         )
+        max_history = st.slider("max_history_points", 50, 500, 200, step=10)
+        show_last_n = st.checkbox("Show only last N steps", value=True)
+        last_n = st.slider("history_window", 20, 200, 50, step=10)
+        show_labels = st.checkbox("Show centroid labels", value=True)
         start = st.button("Start Stream", use_container_width=True)
         pause = st.button("Pause", use_container_width=True)
         reset = st.button("Reset", use_container_width=True)
@@ -381,6 +433,7 @@ def main() -> None:
         drift_rate=drift_rate,
         update_interval_seconds=refresh_interval,
     )
+    st.session_state.max_history_points = max_history
 
     if apply_params and (batch_size > 1500 or drift_rate > 1.5):
         st.warning("High values may reduce responsiveness in mock mode.")
@@ -434,7 +487,7 @@ def main() -> None:
     if st.session_state.use_backend and mock_mode:
         st.info("Mock mode is disabled while backend mode is active.")
 
-    tabs = st.tabs(["Current State"])
+    tabs = st.tabs(["Current State", "History View"])
     with tabs[0]:
         left, right = st.columns([3, 1])
         with left:
@@ -477,6 +530,33 @@ def main() -> None:
                 st.dataframe(df, use_container_width=True, height=220)
             else:
                 st.write("No batches processed yet.")
+
+    with tabs[1]:
+        st.subheader("Centroid trajectories")
+        history = st.session_state.centroid_history
+        if not history:
+            st.info("No centroid history yet. Run a few batches first.")
+        else:
+            history_maps = [snap.centroids for snap in history]
+            only_last_n = last_n if show_last_n else None
+            fig = build_centroid_trajectories(
+                history_maps,
+                show_labels=show_labels,
+                only_last_n=only_last_n,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            latest = history[-1]
+            table_rows = [
+                {
+                    "cluster_id": cluster_id,
+                    "x": centroid[0],
+                    "y": centroid[1],
+                    "batch_id": latest.batch_id,
+                    "timestamp": latest.timestamp,
+                }
+                for cluster_id, centroid in latest.centroids.items()
+            ]
+            st.dataframe(pd.DataFrame(table_rows), use_container_width=True, height=220)
 
     st.caption(f"Refresh interval setting: {refresh_interval} seconds")
 

@@ -43,6 +43,84 @@ def build_cluster_scatter(
     return fig
 
 
+def build_centroid_trajectories(
+    history: list[dict[int, tuple[float, float]]],
+    *,
+    show_labels: bool = True,
+    only_last_n: int | None = None,
+) -> go.Figure:
+    """Build a 2D trajectory plot for centroid history."""
+    fig = go.Figure()
+    if not history:
+        fig.update_layout(
+            title="Centroid trajectories",
+            xaxis_title="x",
+            yaxis_title="y",
+            uirevision="centroid-trajectories",
+        )
+        return fig
+
+    snapshots = history[-only_last_n:] if only_last_n else history
+    cluster_ids = sorted({cid for snap in snapshots for cid in snap.keys()})
+    palette = plotly_colors.qualitative.Set2
+
+    for cluster_id in cluster_ids:
+        xs: list[float | None] = []
+        ys: list[float | None] = []
+        for snap in snapshots:
+            if cluster_id in snap:
+                x, y = snap[cluster_id]
+                xs.append(x)
+                ys.append(y)
+            else:
+                xs.append(None)
+                ys.append(None)
+        color = palette[cluster_id % len(palette)]
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=ys,
+                mode="lines+markers",
+                name=f"Cluster {cluster_id}",
+                line=dict(color=color),
+                marker=dict(color=color, size=6),
+            )
+        )
+        if show_labels:
+            last_point = next(
+                (
+                    snap[cluster_id]
+                    for snap in reversed(snapshots)
+                    if cluster_id in snap
+                ),
+                None,
+            )
+            if last_point is not None:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[last_point[0]],
+                        y=[last_point[1]],
+                        mode="markers+text",
+                        name=f"C{cluster_id}",
+                        text=[f"C{cluster_id}"],
+                        textposition="top center",
+                        marker=dict(color=color, size=10, symbol="circle-open"),
+                        showlegend=False,
+                    )
+                )
+
+    fig.update_layout(
+        title="Centroid trajectories",
+        xaxis_title="x",
+        yaxis_title="y",
+        legend=dict(orientation="v"),
+        uirevision="centroid-trajectories",
+        height=500,
+        margin=dict(l=20, r=20, t=40, b=20),
+    )
+    return fig
+
+
 def _add_cluster_traces(
     fig: go.Figure, points: np.ndarray, labels: np.ndarray
 ) -> None:
