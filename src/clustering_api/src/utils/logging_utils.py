@@ -1,4 +1,5 @@
 import sys
+from collections import deque
 from pathlib import Path
 
 from loguru import logger
@@ -10,6 +11,7 @@ LOG_FORMAT = (
 )
 
 _LOGGING_CONFIGURED = False
+_RECENT_LOGS: deque[dict[str, object]] = deque(maxlen=1000)
 
 
 def configure_logger(level: str = "INFO") -> None:
@@ -52,6 +54,7 @@ def init_logging(
         serialize=True,
         enqueue=True,
     )
+    logger.add(_log_sink, level=level.upper())
     _LOGGING_CONFIGURED = True
     return file_path
 
@@ -66,3 +69,24 @@ def log_warning(message: str, **kwargs) -> None:
 
 def log_error(message: str, **kwargs) -> None:
     logger.bind(**kwargs).error(message)
+
+
+def get_recent_logs(limit: int = 200) -> list[dict[str, object]]:
+    """Return recent logs, newest first."""
+    if limit <= 0:
+        return []
+    logs = list(_RECENT_LOGS)
+    return list(reversed(logs[-limit:]))
+
+
+def _log_sink(message) -> None:
+    record = message.record
+    payload: dict[str, object] = {
+        "timestamp": record["time"].isoformat(),
+        "level": record["level"].name,
+        "message": record["message"],
+    }
+    extra = record.get("extra", {})
+    if isinstance(extra, dict):
+        payload.update(extra)
+    _RECENT_LOGS.append(payload)
