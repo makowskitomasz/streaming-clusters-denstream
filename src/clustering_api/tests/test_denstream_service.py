@@ -1,6 +1,7 @@
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint
 from clustering_api.src.services.denstream_service import DenStreamService
+from clustering_api.src.services.metrics_service import MetricsService
 
 
 class DummyClusterer(BaseClusterer):
@@ -24,7 +25,8 @@ def test_update_clusters_refreshes_cache():
         "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=3, density=0.5)],
         "decayed": [Cluster(id="d-1", centroid=(1.0, 1.0), size=1, density=0.1, status="decayed")],
     }
-    service = DenStreamService(clusterer=dummy)
+    metrics = MetricsService()
+    service = DenStreamService(clusterer=dummy, metrics=metrics)
 
     payload = [ClusterPoint(x=0.1, y=0.2)]
     response = service.update_clusters(payload)
@@ -43,7 +45,8 @@ def test_configure_rebuilds_clusterer():
         created_clusterers.append(dummy)
         return dummy
 
-    service = DenStreamService(clusterer_factory=factory)
+    metrics = MetricsService()
+    service = DenStreamService(clusterer_factory=factory, metrics=metrics)
     first_clusterer = service.clusterer
 
     updated_config = service.configure(decay_factor=0.2)
@@ -51,3 +54,21 @@ def test_configure_rebuilds_clusterer():
     assert service.clusterer is not first_clusterer
     assert created_clusterers[-1].config["decay_factor"] == 0.2
     assert updated_config["decay_factor"] == 0.2
+
+
+def test_metrics_stored_after_denstream_update():
+    dummy = DummyClusterer()
+    dummy.clusters_output = {
+        "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=3, density=0.5)],
+        "decayed": [],
+    }
+    metrics = MetricsService()
+    service = DenStreamService(clusterer=dummy, metrics=metrics)
+
+    payload = [ClusterPoint(x=0.1, y=0.2, batch_id=7)]
+    service.update_clusters(payload)
+    latest = metrics.get_latest("denstream")
+
+    assert latest is not None
+    assert latest.batch_id == 7
+    assert latest.n_samples == 1

@@ -4,8 +4,11 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
+
+# Requires hdbscan and scikit-learn to be installed in the environment.
 from hdbscan import HDBSCAN
-from sklearn.metrics import silhouette_score
+
+from clustering_api.src.services.metrics_service import MetricsService, metrics_service
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,7 @@ class HdbscanService:
         cluster_selection_method: str = "eom",
         random_state: int | None = None,
         history_size: int = 50,
+        metrics: MetricsService | None = None,
     ) -> None:
         self._validate_params(
             min_cluster_size=min_cluster_size,
@@ -69,6 +73,7 @@ class HdbscanService:
         self._random_state = random_state
         self._history_size = history_size
         self._history: list[HdbscanBatchMetadata] = []
+        self._metrics = metrics or metrics_service
 
     def cluster_batch(
         self, features: np.ndarray, batch_id: str | None = None
@@ -100,13 +105,18 @@ class HdbscanService:
 
         clusterer = self._build_clusterer()
         labels = self._fit_predict(clusterer, data)
-        metrics = self._compute_metrics(data, labels)
+        metrics_record = self._metrics.evaluate(
+            data,
+            labels,
+            model_name="hdbscan",
+            batch_id=batch_id,
+        )
         return HdbscanBatchResult(
             labels=labels.tolist(),
-            number_of_clusters=metrics["number_of_clusters"],
-            noise_ratio=metrics["noise_ratio"],
-            silhouette_score=metrics["silhouette_score"],
-            cluster_size_summary=metrics["cluster_size_summary"],
+            number_of_clusters=metrics_record.number_of_clusters,
+            noise_ratio=metrics_record.noise_ratio,
+            silhouette_score=metrics_record.silhouette_score,
+            cluster_size_summary=self._summarize_cluster_sizes(labels),
             batch_id=batch_id,
             n_samples=n_samples,
         )
@@ -116,7 +126,9 @@ class HdbscanService:
         return tuple(self._history)
 
     def _build_clusterer(self) -> HDBSCAN:
-        params = {key: value for key, value in self._params.items() if value is not None}
+        params = {
+            key: value for key, value in self._params.items() if value is not None
+        }
         return HDBSCAN(**params)
 
     def _fit_predict(self, clusterer: HDBSCAN, data: np.ndarray) -> np.ndarray:
@@ -141,33 +153,6 @@ class HdbscanService:
             excess = len(self._history) - self._history_size
             self._history = self._history[excess:]
 
-    def _compute_metrics(
-        self, data: np.ndarray, labels: np.ndarray
-    ) -> dict[str, float | int | None | dict[str, float]]:
-        n_samples = int(labels.size)
-        if n_samples == 0:
-            return {
-                "number_of_clusters": 0,
-                "noise_ratio": 0.0,
-                "silhouette_score": None,
-                "cluster_size_summary": None,
-            }
-
-        noise_count = int(np.sum(labels == -1))
-        noise_ratio = noise_count / n_samples if n_samples else 0.0
-        unique_labels = {int(label) for label in set(labels.tolist()) if label != -1}
-        number_of_clusters = len(unique_labels)
-
-        cluster_size_summary = self._summarize_cluster_sizes(labels)
-        silhouette = self._safe_silhouette_score(data, labels, number_of_clusters)
-
-        return {
-            "number_of_clusters": number_of_clusters,
-            "noise_ratio": noise_ratio,
-            "silhouette_score": silhouette,
-            "cluster_size_summary": cluster_size_summary,
-        }
-
     def _summarize_cluster_sizes(
         self, labels: np.ndarray
     ) -> dict[str, float] | None:
@@ -183,19 +168,6 @@ class HdbscanService:
             "mean": float(np.mean(counts)),
             "max": float(np.max(counts)),
         }
-
-    def _safe_silhouette_score(
-        self, data: np.ndarray, labels: np.ndarray, number_of_clusters: int
-    ) -> float | None:
-        if number_of_clusters < 2:
-            return None
-        mask = labels != -1
-        if np.sum(mask) < 2:
-            return None
-        clustered_labels = labels[mask]
-        if len(set(clustered_labels.tolist())) < 2:
-            return None
-        return float(silhouette_score(data[mask], clustered_labels))
 
     def _validate_params(
         self,
