@@ -11,7 +11,17 @@ def generate_batch():
     return {
         "batch_id": stream_service.batch_id,
         "points_generated": len(data),
-        "preview": data[:10],
+        "points": data,
+    }
+    
+
+@router.get("/generate-cluster-points", summary="Generate synthetic data as cluster points")
+def generate_cluster_points():
+    data = stream_service.generate_batch_cluster_points()
+    return {
+        "batch_id": stream_service.batch_id,
+        "points_generated": len(data),
+        "points": data,
     }
 
 
@@ -20,6 +30,15 @@ def generate_and_save():
     saved_path = stream_service.save_batch()
     return {
         "message": f"Batch {stream_service.batch_id} saved successfully.",
+        "file_path": saved_path,
+    }
+
+
+@router.get("/generate-cluster-points/save", summary="Generate and save synthetic data batch with cluster points")
+def generate_and_save_cluster_points():
+    saved_path = stream_service.save_batch_cluster_points()
+    return {
+        "message": f"Cluster points batch {stream_service.batch_id} saved successfully.",
         "file_path": saved_path,
     }
 

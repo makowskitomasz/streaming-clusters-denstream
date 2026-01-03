@@ -2,9 +2,8 @@ from fastapi import APIRouter
 
 from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 
-router = APIRouter(prefix="/nyc-taxi", tags=["NYC Taxi"])
+router = APIRouter(prefix="/v1/nyc-taxi", tags=["NYC Taxi"])
 
-# Example path – you will place your CSV here
 service = NycTaxiService(
     file_path="data/raw/nyc_taxi/yellow_tripdata_2016-01_batch.csv",
     batch_size=500,
@@ -24,7 +23,24 @@ def next_batch():
         "message": "Batch generated.",
         "batch_id": service.batch_id,
         "size": len(batch),
-        "preview": [p.dict() for p in batch[:10]],
+        "points": [p.model_dump() for p in batch],
+    }
+    
+    
+@router.get("/next-batch-cluster-points")
+def next_batch_cluster_points():
+    batch = service.next_batch_cluster_points()
+    if batch is None:
+        return {
+            "message": "No more data available.",
+            "batch_id": service.batch_id,
+            "data": [],
+        }
+    return {
+        "message": "Batch generated.",
+        "batch_id": service.batch_id,
+        "size": len(batch),
+        "points": [p.model_dump() for p in batch],
     }
 
 

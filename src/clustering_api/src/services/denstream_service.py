@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import asdict
 from typing import Any
 
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.adapters.denstream_clusterer import DenStreamClusterer
+from clustering_api.src.config import config
 from clustering_api.src.models.data_models import Cluster
 
 
 class DenStreamService:
     """Service orchestrating streaming updates for DenStream."""
 
-    DEFAULT_CONFIG = {
-        "decay_factor": 0.01,
-        "epsilon": 0.5,
-        "beta": 0.5,
-        "mu": 2.5,
-        "n_samples_init": 200,
-        "stream_speed": 50,
-    }
+    DEFAULT_CONFIG = asdict(config.denstream)
 
     def __init__(
         self,

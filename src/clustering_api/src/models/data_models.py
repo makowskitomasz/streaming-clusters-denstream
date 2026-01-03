@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -9,18 +9,22 @@ class DataPoint(BaseModel):
     x: float
     y: float
     timestamp: float
-    cluster_id: int
-    source: str = "nyc_taxi"
+    cluster_id: Optional[int] = None
+    source: str = "synthetic"
+    batch_id: Optional[int] = None
+    noise: Optional[bool] = None
 
 
 class ClusterPoint(BaseModel):
-    """Representation of a single sample assigned to a cluster."""
+    """Unified representation of a sample that can be ingested by DenStream."""
 
     x: float
     y: float
     cluster_id: str | None = None
     timestamp: float | None = None
     weight: float = 1.0
+    batch_id: Optional[int] = None
+    noise: Optional[bool] = None
 
     @field_validator("weight")
     @classmethod
@@ -68,7 +72,11 @@ class ClusterSummary(BaseModel):
     def from_clusters(cls, clusters: list[Cluster], noise_points: int = 0) -> ClusterSummary:
         total_clusters = len(clusters)
         total_points = sum(cluster.size for cluster in clusters)
-        avg_density = sum(cluster.density for cluster in clusters) / total_clusters if total_clusters else 0.0
+        avg_density = (
+            sum(cluster.density for cluster in clusters) / total_clusters
+            if total_clusters
+            else 0.0
+        )
         total_items = total_points + noise_points
         noise_ratio = noise_points / total_items if total_items else 0.0
         return cls(
@@ -77,3 +85,21 @@ class ClusterSummary(BaseModel):
             avg_density=avg_density,
             noise_ratio=noise_ratio,
         )
+
+
+def map_datapoint_to_clusterpoint(dp: DataPoint) -> ClusterPoint:
+    """Convert a DataPoint into a ClusterPoint ready for clustering endpoints."""
+    return ClusterPoint(
+        x=dp.x,
+        y=dp.y,
+        timestamp=dp.timestamp,
+        cluster_id=str(dp.cluster_id) if dp.cluster_id is not None else None,
+        weight=1.0,
+        batch_id=dp.batch_id,
+        noise=dp.noise,
+    )
+
+
+def map_batch_to_clusterpoints(batch: List[DataPoint]) -> List[ClusterPoint]:
+    """Convert a list of DataPoints into ClusterPoints."""
+    return [map_datapoint_to_clusterpoint(dp) for dp in batch]

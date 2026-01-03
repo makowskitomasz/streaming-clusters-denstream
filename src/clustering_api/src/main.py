@@ -7,7 +7,7 @@ app = create_app()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "clustering_api.src.main:app",
         host="0.0.0.0",
         port=config.app.server_port,
         reload=True,
