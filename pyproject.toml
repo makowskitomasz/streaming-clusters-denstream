@@ -12,6 +12,7 @@ dependencies = [
     "tqdm",
     "river",
     "plotly",
+    "httpx",
     "streamlit",
     "loguru",
     "python-dotenv",
