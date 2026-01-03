@@ -81,6 +81,63 @@ class StreamService:
         data_points = [cast(DataPoint, record) for record in records]
         return map_batch_to_clusterpoints(data_points)
 
+    def generate_custom_batch(
+        self,
+        *,
+        centroids: np.ndarray,
+        points_per_cluster: int,
+        noise_ratio: float,
+        rng: np.random.Generator,
+        batch_id: int | None = None,
+        noise_bounds: tuple[float, float] = (-8.0, 8.0),
+    ) -> List[ClusterPoint]:
+        """Generate a deterministic batch from supplied centroids and noise ratio."""
+        if centroids.ndim != 2 or centroids.shape[1] != 2:
+            raise ValueError("centroids must be a 2D array with shape (k, 2)")
+        if points_per_cluster <= 0:
+            raise ValueError("points_per_cluster must be greater than 0")
+        if noise_ratio < 0:
+            raise ValueError("noise_ratio must be non-negative")
+        if noise_bounds[0] >= noise_bounds[1]:
+            raise ValueError("noise_bounds must be an increasing range")
+        timestamp = time.time()
+        total_clusters = centroids.shape[0]
+        noise_count = int(points_per_cluster * total_clusters * noise_ratio)
+        cluster_points = rng.normal(
+            loc=0.0,
+            scale=0.5,
+            size=(total_clusters, points_per_cluster, 2),
+        )
+        cluster_points = centroids[:, None, :] + cluster_points
+        noise_points = rng.uniform(
+            noise_bounds[0], noise_bounds[1], size=(noise_count, 2)
+        )
+        records: List[ClusterPoint] = []
+        for cluster_id, points in enumerate(cluster_points):
+            for point in points:
+                records.append(
+                    ClusterPoint(
+                        x=float(point[0]),
+                        y=float(point[1]),
+                        cluster_id=str(cluster_id),
+                        timestamp=timestamp,
+                        batch_id=batch_id,
+                        noise=False,
+                    )
+                )
+        for point in noise_points:
+            records.append(
+                ClusterPoint(
+                    x=float(point[0]),
+                    y=float(point[1]),
+                    cluster_id=None,
+                    timestamp=timestamp,
+                    batch_id=batch_id,
+                    noise=True,
+                )
+            )
+        return records
+
     def save_batch(self, filename: Optional[str] = None) -> str:
         """Generate a batch and persist it as a JSON file."""
         batch = self.generate_batch()
