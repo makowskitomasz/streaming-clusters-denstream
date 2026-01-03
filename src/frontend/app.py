@@ -69,6 +69,10 @@ def _init_state() -> None:
             "active_clusters": 0,
             "noise_ratio": 0.0,
         }
+    if "latest_metrics" not in st.session_state:
+        st.session_state.latest_metrics = None
+    if "metrics_history" not in st.session_state:
+        st.session_state.metrics_history = []
     if "logs" not in st.session_state:
         st.session_state.logs = []
     if "backend_status" not in st.session_state:
@@ -93,6 +97,8 @@ def _reset_state() -> None:
         "active_clusters": 0,
         "noise_ratio": 0.0,
     }
+    st.session_state.latest_metrics = None
+    st.session_state.metrics_history = []
     st.session_state.logs = []
     st.session_state.backend_status = "Disconnected"
     st.session_state.use_backend = False
@@ -181,9 +187,22 @@ def _points_from_batch(
 def _apply_metrics(metrics: MetricsLatestResponse) -> None:
     st.session_state.metrics = {
         "silhouette_score": metrics.silhouette_score,
+        "active_clusters": metrics.active_clusters or 0,
+        "noise_ratio": metrics.noise_ratio or 0.0,
+    }
+    st.session_state.latest_metrics = metrics
+    record = {
+        "timestamp": metrics.timestamp,
+        "model_name": metrics.model_name,
+        "batch_id": metrics.batch_id,
+        "silhouette_score": metrics.silhouette_score,
         "active_clusters": metrics.active_clusters,
         "noise_ratio": metrics.noise_ratio,
+        "drift_magnitude": metrics.drift_magnitude,
+        "latency_ms": metrics.latency_ms,
     }
+    st.session_state.metrics_history.append(record)
+    st.session_state.metrics_history = st.session_state.metrics_history[-100:]
 
 
 def _build_plot_data() -> tuple[list[tuple[float, float]], list[int], dict[int, tuple[float, float]]]:
@@ -272,8 +291,11 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
     state = client.get_current_state()
     if state.centroids:
         st.session_state.centroids = np.asarray(list(state.centroids.values()))
-    metrics = client.get_latest_metrics()
-    _apply_metrics(metrics)
+    try:
+        metrics = client.get_latest_metrics()
+        _apply_metrics(metrics)
+    except BackendError as exc:
+        st.warning(f"Metrics unavailable: {exc}")
     if response.batch_id is not None:
         st.session_state.batch_id = response.batch_id
     else:
@@ -420,17 +442,39 @@ def main() -> None:
             fig = build_cluster_scatter(points_list, labels_list, centroid_map)
             st.plotly_chart(fig, use_container_width=True)
 
-        with right:
-            st.subheader("Metrics")
+    with right:
+            st.subheader("Metrics & State")
             metrics = st.session_state.metrics
-            st.metric("silhouette_score", metrics["silhouette_score"])
-            st.metric("active_clusters", metrics["active_clusters"])
-            st.metric("noise_ratio", metrics["noise_ratio"])
+            latest = st.session_state.latest_metrics
+            if st.session_state.use_backend and latest is None:
+                st.info("No metrics yet. Start the stream or click Next Batch.")
+            silhouette = metrics["silhouette_score"]
+            active_clusters = metrics["active_clusters"]
+            noise_percent = (metrics["noise_ratio"] or 0.0) * 100
+            drift_value = latest.drift_magnitude if latest else None
+
+            st.metric(
+                "silhouette_score",
+                f"{silhouette:.3f}" if isinstance(silhouette, (int, float)) else "—",
+            )
+            st.metric("active_clusters", active_clusters)
+            st.metric("noise_percentage", f"{noise_percent:.1f}%")
+            st.metric(
+                "drift_magnitude",
+                f"{drift_value:.3f}" if isinstance(drift_value, (int, float)) else "—",
+            )
+            if isinstance(drift_value, (int, float)):
+                progress_value = max(0.0, min(drift_value / 5.0, 1.0))
+                st.progress(progress_value)
+
+            if st.session_state.metrics_history:
+                df = pd.DataFrame(st.session_state.metrics_history[-10:])
+                st.dataframe(df, use_container_width=True, height=220)
 
             st.subheader("Recent logs")
             if st.session_state.logs:
                 df = pd.DataFrame(st.session_state.logs)
-                st.dataframe(df, use_container_width=True, height=300)
+                st.dataframe(df, use_container_width=True, height=220)
             else:
                 st.write("No batches processed yet.")
 
