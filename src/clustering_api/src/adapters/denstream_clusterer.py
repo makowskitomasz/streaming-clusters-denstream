@@ -9,10 +9,12 @@ from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint, DataPoint
 
 RawPoint = ClusterPoint | DataPoint | dict[str, Any] | Sequence[float]
+FeatureVector = dict[str, float]
+ConfigValue = int | float
 
 
 class DenStreamClusterer(BaseClusterer):
-    """Adapter that wraps river's DenStream implementation."""
+    """Adapter wrapping River's DenStream implementation."""
 
     def __init__(
         self,
@@ -22,8 +24,8 @@ class DenStreamClusterer(BaseClusterer):
         mu: float = 2.5,
         n_samples_init: int = 200,
         stream_speed: int = 50,
-    ):
-        self.config = {
+    ) -> None:
+        self._config: dict[str, ConfigValue] = {
             "decay_factor": decay_factor,
             "epsilon": epsilon,
             "beta": beta,
@@ -31,38 +33,43 @@ class DenStreamClusterer(BaseClusterer):
             "n_samples_init": n_samples_init,
             "stream_speed": stream_speed,
         }
-        self._model = self._create_model()
+        self._model: river_cluster.DenStream = self._create_model()
 
-    def _create_model(self):
+    @property
+    def config(self) -> dict[str, float]:
+        """Return a copy of the clusterer configuration."""
+        return dict(self._config)
+
+    def _create_model(self) -> river_cluster.DenStream:
         return river_cluster.DenStream(
-            decaying_factor=self.config["decay_factor"],
-            epsilon=self.config["epsilon"],
-            beta=self.config["beta"],
-            mu=self.config["mu"],
-            n_samples_init=self.config["n_samples_init"],
-            stream_speed=self.config["stream_speed"],
+            decaying_factor=self._config["decay_factor"],
+            epsilon=self._config["epsilon"],
+            beta=self._config["beta"],
+            mu=self._config["mu"],
+            n_samples_init=int(self._config["n_samples_init"]),
+            stream_speed=int(self._config["stream_speed"]),
         )
 
-    def _iter_features(self, data: Iterable[RawPoint]) -> Iterable[dict[str, float]]:
+    def _iter_features(self, data: Iterable[RawPoint]) -> Iterable[FeatureVector]:
         for item in data:
-            if isinstance(item, ClusterPoint) or isinstance(item, DataPoint):
-                yield {"x": float(item.x), "y": float(item.y)}
-            elif isinstance(item, dict):
-                yield {"x": float(item["x"]), "y": float(item["y"])}
-            elif isinstance(item, (list, tuple)) and len(item) == 2:
-                yield {"x": float(item[0]), "y": float(item[1])}
-            else:
-                raise TypeError(f"Unsupported data type for DenStreamClusterer: {type(item)}")
+            yield self._point_to_features(item)
 
-    def _micro_clusters_to_cluster(self, clusters_dict, status: str) -> list[Cluster]:
+    def _point_to_features(self, item: RawPoint) -> FeatureVector:
+        if isinstance(item, (ClusterPoint, DataPoint)):
+            return {"x": float(item.x), "y": float(item.y)}
+        if isinstance(item, dict):
+            return {"x": float(item["x"]), "y": float(item["y"])}
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            return {"x": float(item[0]), "y": float(item[1])}
+        raise TypeError(f"Unsupported data type for DenStreamClusterer: {type(item)}")
+
+    def _micro_clusters_to_cluster(
+        self, clusters_dict: dict[Any, Any], status: str
+    ) -> list[Cluster]:
         timestamp = getattr(self._model, "timestamp", 0)
         clusters: list[Cluster] = []
         for idx, micro_cluster in clusters_dict.items():
-            center = micro_cluster.calc_center(timestamp)
-            centroid = (
-                float(center.get("x", center.get(0, 0.0))),
-                float(center.get("y", center.get(1, 0.0))),
-            )
+            centroid = self._micro_cluster_centroid(micro_cluster, timestamp)
             density = float(micro_cluster.calc_weight(timestamp))
             clusters.append(
                 Cluster(
@@ -75,6 +82,15 @@ class DenStreamClusterer(BaseClusterer):
             )
         return clusters
 
+    def _micro_cluster_centroid(
+        self, micro_cluster: Any, timestamp: float
+    ) -> tuple[float, float]:
+        center = micro_cluster.calc_center(timestamp)
+        return (
+            float(center.get("x", center.get(0, 0.0))),
+            float(center.get("y", center.get(1, 0.0))),
+        )
+
     def fit(self, data: Iterable[RawPoint]) -> None:
         self._model = self._create_model()
         self.update(data)
@@ -84,6 +100,10 @@ class DenStreamClusterer(BaseClusterer):
             self._model.learn_one(features)
 
     def get_clusters(self) -> dict[str, list[Cluster]]:
-        active = self._micro_clusters_to_cluster(self._model.p_micro_clusters, status="active")
-        decayed = self._micro_clusters_to_cluster(self._model.o_micro_clusters, status="decayed")
+        active = self._micro_clusters_to_cluster(
+            self._model.p_micro_clusters, status="active"
+        )
+        decayed = self._micro_clusters_to_cluster(
+            self._model.o_micro_clusters, status="decayed"
+        )
         return {"active": active, "decayed": decayed}
