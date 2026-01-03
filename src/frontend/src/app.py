@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import sys
 from datetime import datetime
-from pathlib import Path
 from time import perf_counter, time
 
 import numpy as np
@@ -22,10 +20,6 @@ from frontend.plotting import (
     build_cluster_scatter,
     build_logs_timeline,
 )
-
-SRC_ROOT = Path(__file__).resolve().parents[1]
-if str(SRC_ROOT) not in sys.path:
-    sys.path.append(str(SRC_ROOT))
 
 try:
     from streamlit_autorefresh import st_autorefresh  # type: ignore[import-not-found]
@@ -448,10 +442,10 @@ def main() -> None:
         show_last_n = st.checkbox("Show only last N steps", value=True)
         last_n = st.slider("history_window", 20, 200, 50, step=10)
         show_labels = st.checkbox("Show centroid labels", value=True)
-        start = st.button("Start Stream", use_container_width=True)
-        pause = st.button("Pause", use_container_width=True)
-        reset = st.button("Reset", use_container_width=True)
-        next_batch = st.button("Next Batch", use_container_width=True)
+        start = st.button("Start Stream", width="stretch")
+        pause = st.button("Pause", width="stretch")
+        reset = st.button("Reset", width="stretch")
+        next_batch = st.button("Next Batch", width="stretch")
         status = "Running" if st.session_state.running else "Paused"
         st.caption(f"Status: {status}")
         if st.session_state.use_backend:
@@ -522,7 +516,7 @@ def main() -> None:
         with left:
             points_list, labels_list, centroid_map = _build_plot_data()
             fig = build_cluster_scatter(points_list, labels_list, centroid_map)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with right:
             st.subheader("Metrics & State")
@@ -551,12 +545,12 @@ def main() -> None:
 
             if st.session_state.metrics_history:
                 df = pd.DataFrame(st.session_state.metrics_history[-10:])
-                st.dataframe(df, use_container_width=True, height=220)
+                st.dataframe(df, width="stretch", height=220)
 
             st.subheader("Recent logs")
             if st.session_state.logs:
                 df = pd.DataFrame(st.session_state.logs)
-                st.dataframe(df, use_container_width=True, height=220)
+                st.dataframe(df, width="stretch", height=220)
             else:
                 st.write("No batches processed yet.")
 
@@ -573,7 +567,7 @@ def main() -> None:
                 show_labels=show_labels,
                 only_last_n=only_last_n,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             latest = history[-1]
             table_rows = [
                 {
@@ -585,7 +579,7 @@ def main() -> None:
                 }
                 for cluster_id, centroid in latest.centroids.items()
             ]
-            st.dataframe(pd.DataFrame(table_rows), use_container_width=True, height=220)
+            st.dataframe(pd.DataFrame(table_rows), width="stretch", height=220)
 
     with tabs[2]:
         st.subheader("Logs & Timeline")
@@ -609,7 +603,7 @@ def main() -> None:
                 ["latency_ms", "active_clusters", "noise_ratio", "silhouette_score"],
             )
             fig = build_logs_timeline(logs, series)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             rows = []
             for log in logs:
@@ -630,7 +624,7 @@ def main() -> None:
                         "message": log.message,
                     }
                 )
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, height=260)
+            st.dataframe(pd.DataFrame(rows), width="stretch", height=260)
 
             raw_messages = "\n".join(
                 f"{log.timestamp} | {log.message}" for log in logs if log.message

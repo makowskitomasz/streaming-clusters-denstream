@@ -23,4 +23,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 EXPOSE 8501
 
-CMD ["uv", "run", "streamlit", "run", "src/frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["uv", "run", "streamlit", "run", "src/frontend/src/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
