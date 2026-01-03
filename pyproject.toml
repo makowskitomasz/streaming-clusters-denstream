@@ -12,6 +12,7 @@ dependencies = [
     "tqdm",
     "river",
     "plotly",
+    "streamlit",
     "loguru",
     "python-dotenv",
     "fastapi",
@@ -23,6 +24,8 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
+    "black",
+    "mypy",
     "matplotlib",
     "seaborn",
     "jupyterlab",
