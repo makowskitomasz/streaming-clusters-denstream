@@ -101,10 +101,10 @@ class StreamService:
 
     def configure(
         self,
-        n_clusters: Optional[int] = None,
-        points_per_cluster: Optional[int] = None,
-        noise_ratio: Optional[float] = None,
-        drift: Optional[float] = None,
+        n_clusters: int | None = None,
+        points_per_cluster: int | None = None,
+        noise_ratio: float | None = None,
+        drift: float | None = None,
     ):
         """Update configuration dynamically."""
         if n_clusters is not None and n_clusters != self._n_clusters:
@@ -122,7 +122,7 @@ class StreamService:
         self._batch_id = 0
         self._centroids = self._initialize_centroids(self._n_clusters)
 
-    def get_state(self) -> Dict:
+    def get_state(self) -> dict:
         """Return current configuration and state."""
         return {
             "n_clusters": self._n_clusters,

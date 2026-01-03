@@ -91,7 +91,7 @@ class NycTaxiService:
         batch = [self._df_to_datapoint(row) for _, row in rows]
         return batch
     
-    def next_batch_cluster_points(self) -> Optional[List[ClusterPoint]]:
+    def next_batch_cluster_points(self) -> Optional[list[ClusterPoint]]:
         """Return the next batch of cluster points or ``None`` if stream is exhausted."""
         self._ensure_iterator()
 

@@ -1,13 +1,16 @@
-from typing import Any, Dict, Iterable, List, Sequence, Union
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from river import cluster as river_cluster
 
 from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.models.data_models import Cluster, ClusterPoint, DataPoint
 
-RawPoint = Union[ClusterPoint, DataPoint, Dict[str, Any], Sequence[float]]
-FeatureVector = Dict[str, float]
-ConfigValue = Union[int, float]
+RawPoint = ClusterPoint | DataPoint | dict[str, Any] | Sequence[float]
+FeatureVector = dict[str, float]
+ConfigValue = int | float
 
 
 class DenStreamClusterer(BaseClusterer):
@@ -22,7 +25,7 @@ class DenStreamClusterer(BaseClusterer):
         n_samples_init: int = 200,
         stream_speed: int = 50,
     ) -> None:
-        self._config: Dict[str, ConfigValue] = {
+        self._config: dict[str, ConfigValue] = {
             "decay_factor": decay_factor,
             "epsilon": epsilon,
             "beta": beta,
@@ -33,7 +36,7 @@ class DenStreamClusterer(BaseClusterer):
         self._model: river_cluster.DenStream = self._create_model()
 
     @property
-    def config(self) -> Dict[str, float]:
+    def config(self) -> dict[str, float]:
         """Return a copy of the clusterer configuration."""
         return dict(self._config)
 
@@ -61,10 +64,10 @@ class DenStreamClusterer(BaseClusterer):
         raise TypeError(f"Unsupported data type for DenStreamClusterer: {type(item)}")
 
     def _micro_clusters_to_cluster(
-        self, clusters_dict: Dict[Any, Any], status: str
-    ) -> List[Cluster]:
+        self, clusters_dict: dict[Any, Any], status: str
+    ) -> list[Cluster]:
         timestamp = getattr(self._model, "timestamp", 0)
-        clusters: List[Cluster] = []
+        clusters: list[Cluster] = []
         for idx, micro_cluster in clusters_dict.items():
             centroid = self._micro_cluster_centroid(micro_cluster, timestamp)
             density = float(micro_cluster.calc_weight(timestamp))
@@ -75,7 +78,7 @@ class DenStreamClusterer(BaseClusterer):
                     size=int(micro_cluster.N),
                     density=density,
                     status=status,
-                )
+                ),
             )
         return clusters
 
@@ -96,7 +99,7 @@ class DenStreamClusterer(BaseClusterer):
         for features in self._iter_features(data):
             self._model.learn_one(features)
 
-    def get_clusters(self) -> Dict[str, List[Cluster]]:
+    def get_clusters(self) -> dict[str, list[Cluster]]:
         active = self._micro_clusters_to_cluster(
             self._model.p_micro_clusters, status="active"
         )
