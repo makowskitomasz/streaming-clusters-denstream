@@ -7,9 +7,7 @@ from time import perf_counter, time
 
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
-import plotly.graph_objects as go  # type: ignore[import-untyped]
 import streamlit as st
-from plotly import colors as plotly_colors
 
 from frontend.api_client import (
     ApiClient,
@@ -18,6 +16,7 @@ from frontend.api_client import (
     StreamParams,
     StreamPoint,
 )
+from frontend.plotting import build_cluster_scatter
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
 if str(SRC_ROOT) not in sys.path:
@@ -187,56 +186,23 @@ def _apply_metrics(metrics: MetricsLatestResponse) -> None:
     }
 
 
-def _build_plot(
-    points: np.ndarray, labels: np.ndarray, centroids: np.ndarray
-) -> go.Figure:
-    palette = plotly_colors.qualitative.Set2
-    fig = go.Figure()
-    unique_labels = sorted({int(label) for label in labels.tolist()})
-    for label in unique_labels:
-        mask = labels == label
-        if label == -1:
-            fig.add_trace(
-                go.Scatter(
-                    x=points[mask, 0],
-                    y=points[mask, 1],
-                    mode="markers",
-                    name="Noise",
-                    marker=dict(color="gray", size=6, opacity=0.4),
-                )
-            )
-        else:
-            color = palette[label % len(palette)]
-            fig.add_trace(
-                go.Scatter(
-                    x=points[mask, 0],
-                    y=points[mask, 1],
-                    mode="markers",
-                    name=f"Cluster {label}",
-                    marker=dict(color=color, size=6),
-                )
-            )
-    for idx, centroid in enumerate(centroids):
-        fig.add_trace(
-            go.Scatter(
-                x=[centroid[0]],
-                y=[centroid[1]],
-                mode="markers+text",
-                name=f"C{idx}",
-                text=[f"C{idx}"],
-                textposition="top center",
-                marker=dict(color="black", size=14, symbol="x"),
-            )
-        )
-    fig.update_layout(
-        title="Current clusters (mock)",
-        xaxis_title="Feature 1",
-        yaxis_title="Feature 2",
-        legend=dict(orientation="v"),
-        height=600,
-        margin=dict(l=20, r=20, t=40, b=20),
-    )
-    return fig
+def _build_plot_data() -> tuple[list[tuple[float, float]], list[int], dict[int, tuple[float, float]]]:
+    points = st.session_state.points
+    labels = st.session_state.labels
+    if points.size == 0 or labels.size == 0:
+        return [], [], {}
+    if len(points) != len(labels):
+        st.error("Points and labels lengths do not match.")
+        return [], [], {}
+    points_list = [(float(x), float(y)) for x, y in points.tolist()]
+    labels_list = [int(label) for label in labels.tolist()]
+    centroids = st.session_state.centroids
+    centroid_map: dict[int, tuple[float, float]] = {}
+    if isinstance(centroids, np.ndarray) and centroids.size:
+        for idx, centroid in enumerate(centroids.tolist()):
+            if isinstance(centroid, (list, tuple)) and len(centroid) == 2:
+                centroid_map[idx] = (float(centroid[0]), float(centroid[1]))
+    return points_list, labels_list, centroid_map
 
 
 def _append_log_entry(
@@ -450,11 +416,8 @@ def main() -> None:
     with tabs[0]:
         left, right = st.columns([3, 1])
         with left:
-            fig = _build_plot(
-                st.session_state.points,
-                st.session_state.labels,
-                st.session_state.centroids,
-            )
+            points_list, labels_list, centroid_map = _build_plot_data()
+            fig = build_cluster_scatter(points_list, labels_list, centroid_map)
             st.plotly_chart(fig, use_container_width=True)
 
         with right:
