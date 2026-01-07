@@ -15,7 +15,7 @@ class BackendError(RuntimeError):
         self.status_code = status_code
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StreamParams:
     """Parameters for stream control calls."""
 
@@ -31,7 +31,7 @@ class StreamParams:
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StreamPoint:
     """Point returned by the stream endpoints."""
 
@@ -41,7 +41,7 @@ class StreamPoint:
     noise: bool
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NextBatchResponse:
     """Response from the stream batch endpoint."""
 
@@ -50,7 +50,7 @@ class NextBatchResponse:
     raw: dict[str, object]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ClusterStateResponse:
     """Response describing current clustering state."""
 
@@ -58,7 +58,7 @@ class ClusterStateResponse:
     raw: dict[str, object]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MetricsLatestResponse:
     """Latest metrics snapshot for a model."""
 
@@ -91,29 +91,19 @@ class MetricsLatestResponse:
         timestamp = model_payload.get("timestamp")
         latency_ms = model_payload.get("latency_ms")
         return cls(
-            silhouette_score=float(silhouette)
-            if isinstance(silhouette, (int, float))
-            else None,
-            active_clusters=int(active_clusters)
-            if isinstance(active_clusters, (int, float))
-            else None,
-            noise_ratio=float(noise_ratio)
-            if isinstance(noise_ratio, (int, float))
-            else None,
-            drift_magnitude=float(drift_magnitude)
-            if isinstance(drift_magnitude, (int, float))
-            else None,
-            batch_id=batch_id if isinstance(batch_id, (int, str)) else None,
-            timestamp=timestamp if isinstance(timestamp, str) else None,
-            latency_ms=float(latency_ms)
-            if isinstance(latency_ms, (int, float))
-            else None,
+            silhouette_score=_as_float(silhouette),
+            active_clusters=_as_int(active_clusters),
+            noise_ratio=_as_float(noise_ratio),
+            drift_magnitude=_as_float(drift_magnitude),
+            batch_id=_as_id(batch_id),
+            timestamp=_as_str(timestamp),
+            latency_ms=_as_float(latency_ms),
             model_name=model_name,
             raw=payload,
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LogRecord:
     """Normalized backend log entry."""
 
@@ -153,25 +143,15 @@ class LogRecord:
         drift_magnitude = payload.get("drift_magnitude")
         latency_ms = payload.get("latency_ms")
         return cls(
-            timestamp=str(timestamp) if timestamp is not None else None,
-            batch_id=batch_id if isinstance(batch_id, (int, str)) else None,
-            model_name=str(model_name) if model_name is not None else None,
-            active_clusters=int(active_clusters)
-            if isinstance(active_clusters, (int, float))
-            else None,
-            noise_ratio=float(noise_ratio)
-            if isinstance(noise_ratio, (int, float))
-            else None,
-            silhouette_score=float(silhouette_score)
-            if isinstance(silhouette_score, (int, float))
-            else None,
-            drift_magnitude=float(drift_magnitude)
-            if isinstance(drift_magnitude, (int, float))
-            else None,
-            latency_ms=float(latency_ms)
-            if isinstance(latency_ms, (int, float))
-            else None,
-            message=str(message) if message is not None else None,
+            timestamp=_as_str(timestamp),
+            batch_id=_as_id(batch_id),
+            model_name=_as_str(model_name),
+            active_clusters=_as_int(active_clusters),
+            noise_ratio=_as_float(noise_ratio),
+            silhouette_score=_as_float(silhouette_score),
+            drift_magnitude=_as_float(drift_magnitude),
+            latency_ms=_as_float(latency_ms),
+            message=_as_str(message),
             raw=payload,
         )
 
@@ -258,35 +238,15 @@ class ApiClient:
 
     def _parse_next_batch(self, payload: dict[str, object]) -> NextBatchResponse:
         raw_points = payload.get("points", [])
-        points: list[StreamPoint] = []
-        if isinstance(raw_points, list):
-            for item in raw_points:
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    x = float(item.get("x", 0.0))
-                    y = float(item.get("y", 0.0))
-                except (TypeError, ValueError):
-                    continue
-                cluster_id = item.get("cluster_id")
-                parsed_id = None
-                if cluster_id is not None:
-                    try:
-                        parsed_id = int(cluster_id)
-                    except (TypeError, ValueError):
-                        parsed_id = None
-                noise = bool(item.get("noise", False))
-                points.append(
-                    StreamPoint(
-                        x=x,
-                        y=y,
-                        cluster_id=parsed_id,
-                        noise=noise,
-                    ),
-                )
+        points = [
+            _parse_stream_point(item)
+            for item in raw_points
+            if isinstance(item, dict)
+        ]
+        points = [point for point in points if point is not None]
         batch_id = payload.get("batch_id")
         return NextBatchResponse(
-            batch_id=int(batch_id) if isinstance(batch_id, int) else None,
+            batch_id=_as_int(batch_id),
             points=points,
             raw=payload,
         )
@@ -301,12 +261,45 @@ class ApiClient:
                 if not isinstance(item, dict):
                     continue
                 centroid = item.get("centroid")
-                if (
-                    isinstance(centroid, (list, tuple))
-                    and len(centroid) == 2
-                ):
-                    try:
-                        centroids[idx] = (float(centroid[0]), float(centroid[1]))
-                    except (TypeError, ValueError):
-                        continue
+                parsed = _parse_centroid(centroid)
+                if parsed is not None:
+                    centroids[idx] = parsed
         return ClusterStateResponse(centroids=centroids, raw=payload)
+
+
+def _as_float(value: object) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _as_int(value: object) -> int | None:
+    return int(value) if isinstance(value, (int, float)) else None
+
+
+def _as_str(value: object) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _as_id(value: object) -> int | str | None:
+    if isinstance(value, (int, str)):
+        return value
+    return None
+
+
+def _parse_centroid(value: object) -> tuple[float, float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    try:
+        return (float(value[0]), float(value[1]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_stream_point(item: dict[str, object]) -> StreamPoint | None:
+    try:
+        x = float(item.get("x", 0.0))
+        y = float(item.get("y", 0.0))
+    except (TypeError, ValueError):
+        return None
+    cluster_id = _as_int(item.get("cluster_id"))
+    noise = bool(item.get("noise", False))
+    return StreamPoint(x=x, y=y, cluster_id=cluster_id, noise=noise)

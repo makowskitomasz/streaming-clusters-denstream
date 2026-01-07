@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,6 +10,7 @@ from plotly import colors as plotly_colors
 if TYPE_CHECKING:
     from api_client import LogRecord
 
+
 def build_cluster_scatter(
     points: list[tuple[float, float]],
     labels: list[int],
@@ -16,7 +18,10 @@ def build_cluster_scatter(
 ) -> go.Figure:
     """Build a Plotly scatter for clusters with optional centroids."""
     if len(points) != len(labels):
-        msg = f"points and labels must have matching lengths, got {len(points)} and {len(labels)}"
+        msg = (
+            "points and labels must have matching lengths, "
+            f"got {len(points)} and {len(labels)}"
+        )
         raise ValueError(msg)
     fig = go.Figure()
     if not points:
@@ -67,8 +72,6 @@ def build_centroid_trajectories(
 
     snapshots = history[-only_last_n:] if only_last_n else history
     cluster_ids = sorted({cid for snap in snapshots for cid in snap})
-    palette = plotly_colors.qualitative.Set2
-
     for cluster_id in cluster_ids:
         xs: list[float | None] = []
         ys: list[float | None] = []
@@ -80,7 +83,7 @@ def build_centroid_trajectories(
             else:
                 xs.append(None)
                 ys.append(None)
-        color = palette[cluster_id % len(palette)]
+        color = _color_for_label(cluster_id)
         fig.add_trace(
             go.Scatter(
                 x=xs,
@@ -132,8 +135,8 @@ def build_logs_timeline(logs: list[LogRecord], series: str) -> go.Figure:
     if not logs:
         fig.update_layout(title="Performance timeline")
         return fig
-    xs = []
-    ys = []
+    xs: list[object] = []
+    ys: list[float] = []
     for idx, log in enumerate(logs):
         x_value = log.timestamp or log.batch_id or idx
         value = getattr(log, series, None)
@@ -162,7 +165,6 @@ def build_logs_timeline(logs: list[LogRecord], series: str) -> go.Figure:
 def _add_cluster_traces(
     fig: go.Figure, points: np.ndarray, labels: np.ndarray,
 ) -> None:
-    palette = plotly_colors.qualitative.Set2
     unique_labels = sorted({int(label) for label in labels.tolist()})
     for label in unique_labels:
         mask = labels == label
@@ -177,7 +179,7 @@ def _add_cluster_traces(
                 ),
             )
         else:
-            color = palette[label % len(palette)]
+            color = _color_for_label(label)
             fig.add_trace(
                 go.Scatter(
                     x=points[mask, 0],
@@ -193,6 +195,7 @@ def _add_centroid_traces(
     fig: go.Figure, centroids: dict[int, tuple[float, float]],
 ) -> None:
     for cluster_id, centroid in centroids.items():
+        color = _color_for_label(cluster_id)
         fig.add_trace(
             go.Scatter(
                 x=[centroid[0]],
@@ -201,7 +204,7 @@ def _add_centroid_traces(
                 name=f"C{cluster_id}",
                 text=[f"C{cluster_id}"],
                 textposition="top center",
-                marker={"color": "black", "size": 14, "symbol": "x"},
+                marker={"color": color, "size": 14, "symbol": "x"},
             ),
         )
 
@@ -219,3 +222,9 @@ def _compute_centroids(
         center = points[mask].mean(axis=0)
         centroids[label] = (float(center[0]), float(center[1]))
     return centroids
+
+
+@lru_cache(maxsize=256)
+def _color_for_label(label: int) -> str:
+    palette = plotly_colors.qualitative.Set2
+    return palette[label % len(palette)]

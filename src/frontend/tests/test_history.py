@@ -1,3 +1,5 @@
+from collections import deque
+
 import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 from history import CentroidSnapshot, append_history, compute_centroids_from_points
@@ -5,16 +7,16 @@ from plotting import build_centroid_trajectories
 
 
 def test_append_history_trims() -> None:
-    history = []
+    history = deque(maxlen=3)
     for idx in range(5):
         snapshot = CentroidSnapshot(
             batch_id=idx,
             timestamp="t",
             centroids={0: (float(idx), 0.0)},
         )
-        history = append_history(history, snapshot, max_len=3)
+        append_history(history, snapshot)
     assert len(history) == 3
-    assert history[0].batch_id == 2
+    assert list(history)[0].batch_id == 2
 
 
 def test_compute_centroids_excludes_noise() -> None:

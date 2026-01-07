@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from time import perf_counter, time
+from time import time
 
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
@@ -14,7 +16,12 @@ from api_client import (
     StreamPoint,
 )
 from history import CentroidSnapshot, append_history, compute_centroids_from_points
-from plotting import build_centroid_trajectories, build_cluster_scatter, build_logs_timeline
+from plotting import (
+    build_centroid_trajectories,
+    build_cluster_scatter,
+    build_logs_timeline,
+)
+from utils import measure_latency
 
 try:
     from streamlit_autorefresh import st_autorefresh  # type: ignore[import-not-found]
@@ -36,6 +43,30 @@ def _rerun() -> None:
     legacy = getattr(st, "experimental_rerun", None)
     if callable(legacy):  # pragma: no cover
         legacy()
+
+
+@dataclass(frozen=True, slots=True)
+class UiLogEntry:
+    timestamp: str
+    action: str
+    status: str
+    batch_id: int
+    n_samples: int
+    active_clusters: int
+    noise_ratio: float
+    latency_ms: float
+
+    def as_row(self) -> dict[str, object]:
+        return {
+            "timestamp": self.timestamp,
+            "action": self.action,
+            "status": self.status,
+            "batch_id": self.batch_id,
+            "n_samples": self.n_samples,
+            "active_clusters": self.active_clusters,
+            "noise_ratio": round(self.noise_ratio, 3),
+            "latency_ms": round(self.latency_ms, 2),
+        }
 
 
 def _init_state() -> None:
@@ -66,9 +97,9 @@ def _init_state() -> None:
     if "latest_metrics" not in st.session_state:
         st.session_state.latest_metrics = None
     if "metrics_history" not in st.session_state:
-        st.session_state.metrics_history = []
+        st.session_state.metrics_history = deque(maxlen=100)
     if "centroid_history" not in st.session_state:
-        st.session_state.centroid_history = []
+        st.session_state.centroid_history = deque(maxlen=200)
     if "max_history_points" not in st.session_state:
         st.session_state.max_history_points = 200
     if "recent_logs" not in st.session_state:
@@ -78,7 +109,7 @@ def _init_state() -> None:
     if "logs_last_refresh_ts" not in st.session_state:
         st.session_state.logs_last_refresh_ts = None
     if "logs" not in st.session_state:
-        st.session_state.logs = []
+        st.session_state.logs = deque(maxlen=20)
     if "backend_status" not in st.session_state:
         st.session_state.backend_status = "Disconnected"
     if "use_backend" not in st.session_state:
@@ -102,13 +133,13 @@ def _reset_state() -> None:
         "noise_ratio": 0.0,
     }
     st.session_state.latest_metrics = None
-    st.session_state.metrics_history = []
-    st.session_state.centroid_history = []
+    st.session_state.metrics_history = deque(maxlen=100)
+    st.session_state.centroid_history = deque(maxlen=200)
     st.session_state.max_history_points = 200
     st.session_state.recent_logs = []
     st.session_state.logs_last_error = None
     st.session_state.logs_last_refresh_ts = None
-    st.session_state.logs = []
+    st.session_state.logs = deque(maxlen=20)
     st.session_state.backend_status = "Disconnected"
     st.session_state.use_backend = False
 
@@ -153,7 +184,11 @@ def _generate_mock_batch(
         labels_array = np.array([], dtype=int)
 
     shuffle: np.ndarray
-    shuffle = rng.permutation(points_array.shape[0]) if points_array.size else np.array([])
+    shuffle = (
+        rng.permutation(points_array.shape[0])
+        if points_array.size
+        else np.array([])
+    )
     return points_array[shuffle], labels_array[shuffle], centroids
 
 
@@ -184,12 +219,10 @@ def _points_from_batch(
     if not points:
         return None
     coords = np.asarray([[point.x, point.y] for point in points], dtype=float)
-    labels = []
-    for point in points:
-        if point.cluster_id is None or point.noise:
-            labels.append(-1)
-        else:
-            labels.append(point.cluster_id)
+    labels = [
+        -1 if point.cluster_id is None or point.noise else point.cluster_id
+        for point in points
+    ]
     return coords, np.asarray(labels, dtype=int)
 
 
@@ -200,21 +233,14 @@ def _apply_metrics(metrics: MetricsLatestResponse) -> None:
         "noise_ratio": metrics.noise_ratio or 0.0,
     }
     st.session_state.latest_metrics = metrics
-    record = {
-        "timestamp": metrics.timestamp,
-        "model_name": metrics.model_name,
-        "batch_id": metrics.batch_id,
-        "silhouette_score": metrics.silhouette_score,
-        "active_clusters": metrics.active_clusters,
-        "noise_ratio": metrics.noise_ratio,
-        "drift_magnitude": metrics.drift_magnitude,
-        "latency_ms": metrics.latency_ms,
-    }
-    st.session_state.metrics_history.append(record)
-    st.session_state.metrics_history = st.session_state.metrics_history[-100:]
+    st.session_state.metrics_history.append(metrics)
 
 
-def _build_plot_data() -> tuple[list[tuple[float, float]], list[int], dict[int, tuple[float, float]]]:
+def _build_plot_data() -> tuple[
+    list[tuple[float, float]],
+    list[int],
+    dict[int, tuple[float, float]],
+]:
     points = st.session_state.points
     labels = st.session_state.labels
     if points.size == 0 or labels.size == 0:
@@ -241,16 +267,17 @@ def _record_centroid_history(
 ) -> None:
     if not centroid_map:
         return
+    if st.session_state.centroid_history.maxlen != max_history:
+        st.session_state.centroid_history = deque(
+            st.session_state.centroid_history,
+            maxlen=max_history,
+        )
     snapshot = CentroidSnapshot(
         batch_id=batch_id,
         timestamp=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
         centroids=centroid_map,
     )
-    st.session_state.centroid_history = append_history(
-        st.session_state.centroid_history,
-        snapshot,
-        max_history,
-    )
+    append_history(st.session_state.centroid_history, snapshot)
 
 
 def _refresh_logs(client: ApiClient, limit: int) -> None:
@@ -258,15 +285,25 @@ def _refresh_logs(client: ApiClient, limit: int) -> None:
         st.session_state.recent_logs = []
         st.session_state.logs_last_error = None
         return
-    try:
-        logs = client.get_recent_logs(limit=limit)
-        st.session_state.recent_logs = logs
-        st.session_state.logs_last_error = None
-        st.session_state.logs_last_refresh_ts = datetime.now(
-            tz=timezone.utc
-        ).isoformat(timespec="seconds")
-    except BackendError as exc:
-        st.session_state.logs_last_error = str(exc)
+    with measure_latency() as timer:
+        try:
+            logs = client.get_recent_logs(limit=limit)
+            st.session_state.recent_logs = logs
+            st.session_state.logs_last_error = None
+            st.session_state.logs_last_refresh_ts = datetime.now(
+                tz=timezone.utc
+            ).isoformat(timespec="seconds")
+        except BackendError as exc:
+            st.session_state.logs_last_error = str(exc)
+    _append_log_entry(
+        action="logs_refresh",
+        batch_id=st.session_state.batch_id,
+        n_samples=int(st.session_state.points.shape[0]),
+        active_clusters=int(st.session_state.metrics["active_clusters"] or 0),
+        noise_ratio=float(st.session_state.metrics["noise_ratio"] or 0.0),
+        latency_ms=timer.ms,
+        status="success" if st.session_state.logs_last_error is None else "error",
+    )
 
 
 def _append_log_entry(
@@ -279,30 +316,29 @@ def _append_log_entry(
     latency_ms: float,
     status: str = "success",
 ) -> None:
-    entry = {
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
-        "action": action,
-        "status": status,
-        "batch_id": batch_id,
-        "n_samples": n_samples,
-        "active_clusters": active_clusters,
-        "noise_ratio": round(noise_ratio, 3),
-        "latency_ms": round(latency_ms, 2),
-    }
+    entry = UiLogEntry(
+        timestamp=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
+        action=action,
+        status=status,
+        batch_id=batch_id,
+        n_samples=n_samples,
+        active_clusters=active_clusters,
+        noise_ratio=noise_ratio,
+        latency_ms=latency_ms,
+    )
     st.session_state.logs.append(entry)
-    st.session_state.logs = st.session_state.logs[-20:]
 
 
 def _next_batch(batch_size: int, drift_rate: float) -> None:
-    start = perf_counter()
-    points, labels, centroids = _generate_mock_batch(
-        batch_size=batch_size,
-        drift_rate=drift_rate,
-        step=st.session_state.batch_id,
-        rng=st.session_state.rng,
-    )
-    metrics = _compute_metrics(points, labels)
-    latency_ms = (perf_counter() - start) * 1000
+    with measure_latency() as timer:
+        points, labels, centroids = _generate_mock_batch(
+            batch_size=batch_size,
+            drift_rate=drift_rate,
+            step=st.session_state.batch_id,
+            rng=st.session_state.rng,
+        )
+        metrics = _compute_metrics(points, labels)
+    latency_ms = timer.ms
 
     st.session_state.points = points
     st.session_state.labels = labels
@@ -333,9 +369,9 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
 
 
 def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
-    start = perf_counter()
-    response = client.next_batch(params)
-    latency_ms = (perf_counter() - start) * 1000
+    with measure_latency() as timer:
+        response = client.next_batch(params)
+    latency_ms = timer.ms
     parsed = _points_from_batch(response.points)
     if parsed:
         points, labels = parsed
@@ -383,18 +419,19 @@ def _call_backend(
     params: StreamParams,
     client: ApiClient,
 ) -> tuple[bool, str]:
-    start = perf_counter()
-    try:
-        if action == "start":
-            client.start_stream(params)
-        elif action == "reset":
-            client.reset_stream()
-        else:
-            return False, "Unsupported action"
-    except BackendError as exc:
-        st.session_state.backend_status = f"Error: {exc}"
-        return False, str(exc)
-    latency_ms = (perf_counter() - start) * 1000
+    with measure_latency() as timer:
+        try:
+            match action:
+                case "start":
+                    client.start_stream(params)
+                case "reset":
+                    client.reset_stream()
+                case _:
+                    return False, "Unsupported action"
+        except BackendError as exc:
+            st.session_state.backend_status = f"Error: {exc}"
+            return False, str(exc)
+    latency_ms = timer.ms
     st.session_state.backend_status = "Connected"
     _append_log_entry(
         action=f"backend_{action}",
@@ -408,6 +445,7 @@ def _call_backend(
 
 
 def main() -> None:
+    """Render the Streamlit clustering dashboard."""
     st.set_page_config(page_title="Clustering Dashboard", layout="wide")
     _init_state()
 
@@ -513,7 +551,7 @@ def main() -> None:
             fig = build_cluster_scatter(points_list, labels_list, centroid_map)
             st.plotly_chart(fig, width="stretch")
 
-    with right:
+        with right:
             st.subheader("Metrics & State")
             metrics = st.session_state.metrics
             latest = st.session_state.latest_metrics
@@ -539,13 +577,25 @@ def main() -> None:
                 st.progress(progress_value)
 
             if st.session_state.metrics_history:
-                df = pd.DataFrame(st.session_state.metrics_history[-10:])
-                st.dataframe(df, width="stretch", height=220)
+                rows = [
+                    {
+                        "timestamp": item.timestamp,
+                        "model_name": item.model_name,
+                        "batch_id": item.batch_id,
+                        "silhouette_score": item.silhouette_score,
+                        "active_clusters": item.active_clusters,
+                        "noise_ratio": item.noise_ratio,
+                        "drift_magnitude": item.drift_magnitude,
+                        "latency_ms": item.latency_ms,
+                    }
+                    for item in list(st.session_state.metrics_history)[-10:]
+                ]
+                st.dataframe(pd.DataFrame(rows), width="stretch", height=220)
 
             st.subheader("Recent logs")
             if st.session_state.logs:
-                df = pd.DataFrame(st.session_state.logs)
-                st.dataframe(df, width="stretch", height=220)
+                rows = [entry.as_row() for entry in st.session_state.logs]
+                st.dataframe(pd.DataFrame(rows), width="stretch", height=220)
             else:
                 st.write("No batches processed yet.")
 
