@@ -43,7 +43,7 @@ test:
 
 lint:
 	uv run ruff check . --output-format=full
-# 	uv run mypy src/frontend/src
+	uv run mypy src/frontend/src
 
 lint-fix:
 	uv run ruff check . --output-format=full --fix

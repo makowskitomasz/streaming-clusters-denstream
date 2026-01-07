@@ -242,9 +242,16 @@ class ApiClient:
         return {}
 
     def _parse_next_batch(self, payload: dict[str, object]) -> NextBatchResponse:
-        raw_points = payload.get("points", [])
-        points = [_parse_stream_point(item) for item in raw_points if isinstance(item, dict)]
-        points = [point for point in points if point is not None]
+        raw_points = payload.get("points")
+        if not isinstance(raw_points, list):
+            raw_points = []
+        points: list[StreamPoint] = []
+        for item in raw_points:
+            if not isinstance(item, dict):
+                continue
+            parsed = _parse_stream_point(item)
+            if parsed is not None:
+                points.append(parsed)
         batch_id = payload.get("batch_id")
         return NextBatchResponse(
             batch_id=_as_int(batch_id),
@@ -290,6 +297,8 @@ def _as_id(value: object) -> int | str | None:
 def _parse_centroid(value: object) -> tuple[float, float] | None:
     if not isinstance(value, (list, tuple)) or len(value) != DIMENSIONS:
         return None
+    if not (isinstance(value[0], (int, float)) and isinstance(value[1], (int, float))):
+        return None
     try:
         return (float(value[0]), float(value[1]))
     except (TypeError, ValueError):
@@ -297,9 +306,15 @@ def _parse_centroid(value: object) -> tuple[float, float] | None:
 
 
 def _parse_stream_point(item: dict[str, object]) -> StreamPoint | None:
+    x_value = item.get("x", 0.0)
+    y_value = item.get("y", 0.0)
+    if not isinstance(x_value, (int | float | str)):
+        return None
+    if not isinstance(y_value, (int | float | str)):
+        return None
     try:
-        x = float(item.get("x", 0.0))
-        y = float(item.get("y", 0.0))
+        x = float(x_value)
+        y = float(y_value)
     except (TypeError, ValueError):
         return None
     cluster_id = _as_int(item.get("cluster_id"))

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
@@ -223,5 +223,5 @@ def _compute_centroids(
 
 @lru_cache(maxsize=256)
 def _color_for_label(label: int) -> str:
-    palette = plotly_colors.qualitative.Set2
+    palette = cast("list[str]", plotly_colors.qualitative.Set2)
     return palette[label % len(palette)]
