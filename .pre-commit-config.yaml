@@ -5,7 +5,7 @@ repos:
         name: "pre-commit: lint + format"
         entry: scripts/pre_commit_checks.sh
         language: system
-        stages: [commit]
+        stages: [pre-commit]
         pass_filenames: false
       - id: pre-push-checks
         name: "pre-push: lint + tests"
