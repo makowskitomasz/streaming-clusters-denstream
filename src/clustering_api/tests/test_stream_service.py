@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ def test_generate_batch_structure():
 def test_save_batch_creates_file(tmp_path):
     service = StreamService(output_dir=tmp_path)
     file_path = service.save_batch()
-    assert os.path.exists(file_path)
+    assert Path(file_path).exists()
     df = pd.read_json(file_path)
     assert len(df) > 0
     assert "x" in df.columns

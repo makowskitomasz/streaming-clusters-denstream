@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+MIN_AGE_FOR_DRIFT = 2
+
 
 @dataclass(frozen=True, slots=True)
 class ClusterDrift:
@@ -191,18 +193,19 @@ class DriftTracker:
         high_drift: list[int] = []
         for cluster_id in self._prev_centroids:
             age = self._ages.get(cluster_id, 0)
-            if age < 2:
+            if age < MIN_AGE_FOR_DRIFT:
                 continue
             ema_distance = self._ema_distance.get(cluster_id)
-            if distance_threshold is not None and ema_distance is not None:
-                if ema_distance > distance_threshold:
-                    high_drift.append(cluster_id)
-                    continue
-            if speed_threshold is not None:
-                if ema_distance is not None and ema_distance > 0:
-                    speed = ema_distance
-                    if speed > speed_threshold:
-                        high_drift.append(cluster_id)
+            if distance_threshold is not None and ema_distance is not None and ema_distance > distance_threshold:
+                high_drift.append(cluster_id)
+                continue
+            if (
+                speed_threshold is not None
+                and ema_distance is not None
+                and ema_distance > 0
+                and ema_distance > speed_threshold
+            ):
+                high_drift.append(cluster_id)
         return sorted(set(high_drift))
 
     def _sanitize_centroids(

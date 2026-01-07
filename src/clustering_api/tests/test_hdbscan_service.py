@@ -10,7 +10,10 @@ from clustering_api.src.services.metrics_service import MetricsService
 def test_cluster_batch_returns_labels_length():
     # Arrange
     features, _ = make_blobs(
-        n_samples=60, centers=2, cluster_std=0.3, random_state=7,
+        n_samples=60,
+        centers=2,
+        cluster_std=0.3,
+        random_state=7,
     )
     metrics = MetricsService()
     service = HdbscanService(min_cluster_size=5, random_state=7, metrics=metrics)
@@ -25,7 +28,10 @@ def test_cluster_batch_returns_labels_length():
 def test_metrics_exclude_noise():
     # Arrange
     features, _ = make_blobs(
-        n_samples=80, centers=2, cluster_std=0.35, random_state=42,
+        n_samples=80,
+        centers=2,
+        cluster_std=0.35,
+        random_state=42,
     )
     rng = np.random.default_rng(42)
     noise = rng.uniform(-6, 6, size=(12, 2))
@@ -48,7 +54,10 @@ def test_metrics_exclude_noise():
 def test_silhouette_none_with_single_cluster(monkeypatch):
     # Arrange
     features, _ = make_blobs(
-        n_samples=40, centers=1, cluster_std=0.2, random_state=1,
+        n_samples=40,
+        centers=1,
+        cluster_std=0.2,
+        random_state=1,
     )
     metrics = MetricsService()
     service = HdbscanService(min_cluster_size=5, random_state=1, metrics=metrics)
@@ -103,7 +112,10 @@ def test_empty_batch_handled_gracefully():
 def test_history_size_cap():
     # Arrange
     features, _ = make_blobs(
-        n_samples=20, centers=2, cluster_std=0.2, random_state=5,
+        n_samples=20,
+        centers=2,
+        cluster_std=0.2,
+        random_state=5,
     )
     metrics = MetricsService()
     service = HdbscanService(history_size=2, random_state=5, metrics=metrics)
@@ -124,7 +136,10 @@ def test_history_size_cap():
 def test_metrics_stored_after_cluster_batch():
     # Arrange
     features, _ = make_blobs(
-        n_samples=30, centers=2, cluster_std=0.4, random_state=11,
+        n_samples=30,
+        centers=2,
+        cluster_std=0.4,
+        random_state=11,
     )
     metrics = MetricsService()
     service = HdbscanService(min_cluster_size=5, random_state=11, metrics=metrics)

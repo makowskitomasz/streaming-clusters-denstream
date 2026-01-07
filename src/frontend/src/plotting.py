@@ -18,7 +18,7 @@ def build_cluster_scatter(
 ) -> go.Figure:
     """Build a Plotly scatter for clusters with optional centroids."""
     if len(points) != len(labels):
-        msg = "points and labels must have matching lengths, " f"got {len(points)} and {len(labels)}"
+        msg = f"points and labels must have matching lengths, got {len(points)} and {len(labels)}"
         raise ValueError(msg)
     fig = go.Figure()
     if not points:

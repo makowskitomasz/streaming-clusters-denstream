@@ -1,6 +1,6 @@
-from collections.abc import Iterator
 from itertools import islice
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -9,6 +9,9 @@ from clustering_api.src.models.data_models import (
     DataPoint,
     map_datapoint_to_clusterpoint,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class NycTaxiService:

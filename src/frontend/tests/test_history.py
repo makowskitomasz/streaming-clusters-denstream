@@ -16,7 +16,7 @@ def test_append_history_trims() -> None:
         )
         append_history(history, snapshot)
     assert len(history) == 3
-    assert list(history)[0].batch_id == 2
+    assert next(iter(history)).batch_id == 2
 
 
 def test_compute_centroids_excludes_noise() -> None:

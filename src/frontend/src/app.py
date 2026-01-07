@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import time
 
 import numpy as np
@@ -34,6 +34,16 @@ except ImportError:  # pragma: no cover
         if now - last >= interval / 1000:
             st.session_state[last_key] = now
             _rerun()
+
+
+try:
+    from sklearn.metrics import silhouette_score as sklearn_silhouette_score  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    sklearn_silhouette_score = None
+
+CENTROID_DIMS = 2
+HIGH_BATCH_SIZE = 1500
+HIGH_DRIFT_RATE = 1.5
 
 
 def _rerun() -> None:
@@ -84,7 +94,7 @@ def _init_state() -> None:
             [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]],
         )
     if "points" not in st.session_state:
-        st.session_state.points = np.empty((0, 2))
+        st.session_state.points = np.empty((0, CENTROID_DIMS))
     if "labels" not in st.session_state:
         st.session_state.labels = np.array([], dtype=int)
     if "centroids" not in st.session_state:
@@ -125,7 +135,7 @@ def _reset_state() -> None:
     st.session_state.base_centroids = np.array(
         [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]],
     )
-    st.session_state.points = np.empty((0, 2))
+    st.session_state.points = np.empty((0, CENTROID_DIMS))
     st.session_state.labels = np.array([], dtype=int)
     st.session_state.centroids = st.session_state.base_centroids.copy()
     st.session_state.metrics = {
@@ -168,12 +178,12 @@ def _generate_mock_batch(
         count = per_cluster + (1 if idx < remainder else 0)
         if count == 0:
             continue
-        blob = rng.normal(0.0, 0.6, size=(count, 2)) + centroid
+        blob = rng.normal(0.0, 0.6, size=(count, CENTROID_DIMS)) + centroid
         points.append(blob)
         labels.append(np.full(count, idx))
 
     if noise_count > 0:
-        noise = rng.uniform(-8.0, 8.0, size=(noise_count, 2))
+        noise = rng.uniform(-8.0, 8.0, size=(noise_count, CENTROID_DIMS))
         points.append(noise)
         labels.append(np.full(noise_count, -1))
 
@@ -181,7 +191,7 @@ def _generate_mock_batch(
         points_array = np.vstack(points)
         labels_array = np.concatenate(labels)
     else:
-        points_array = np.empty((0, 2))
+        points_array = np.empty((0, CENTROID_DIMS))
         labels_array = np.array([], dtype=int)
 
     shuffle: np.ndarray
@@ -197,12 +207,10 @@ def _compute_metrics(
     active_clusters = len(set(active_labels.tolist()))
     noise_ratio = float(np.mean(labels == -1)) if labels.size else 0.0
     silhouette = None
-    if points.shape[0] > 1 and active_clusters > 1:
+    if points.shape[0] > 1 and active_clusters > 1 and sklearn_silhouette_score is not None:
         try:
-            from sklearn.metrics import silhouette_score  # type: ignore[import-untyped]
-
-            silhouette = float(silhouette_score(points, labels))
-        except Exception:
+            silhouette = float(sklearn_silhouette_score(points, labels))
+        except (ValueError, RuntimeError):
             silhouette = None
     return {
         "silhouette_score": silhouette,
@@ -231,13 +239,11 @@ def _apply_metrics(metrics: MetricsLatestResponse) -> None:
     st.session_state.metrics_history.append(metrics)
 
 
-def _build_plot_data() -> (
-    tuple[
-        list[tuple[float, float]],
-        list[int],
-        dict[int, tuple[float, float]],
-    ]
-):
+def _build_plot_data() -> tuple[
+    list[tuple[float, float]],
+    list[int],
+    dict[int, tuple[float, float]],
+]:
     points = st.session_state.points
     labels = st.session_state.labels
     if points.size == 0 or labels.size == 0:
@@ -251,7 +257,7 @@ def _build_plot_data() -> (
     centroid_map: dict[int, tuple[float, float]] = {}
     if isinstance(centroids, np.ndarray) and centroids.size:
         for idx, centroid in enumerate(centroids.tolist()):
-            if isinstance(centroid, (list, tuple)) and len(centroid) == 2:
+            if isinstance(centroid, (list, tuple)) and len(centroid) == CENTROID_DIMS:
                 centroid_map[idx] = (float(centroid[0]), float(centroid[1]))
     return points_list, labels_list, centroid_map
 
@@ -271,7 +277,7 @@ def _record_centroid_history(
         )
     snapshot = CentroidSnapshot(
         batch_id=batch_id,
-        timestamp=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
+        timestamp=datetime.now(tz=UTC).isoformat(timespec="seconds"),
         centroids=centroid_map,
     )
     append_history(st.session_state.centroid_history, snapshot)
@@ -287,7 +293,7 @@ def _refresh_logs(client: ApiClient, limit: int) -> None:
             logs = client.get_recent_logs(limit=limit)
             st.session_state.recent_logs = logs
             st.session_state.logs_last_error = None
-            st.session_state.logs_last_refresh_ts = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+            st.session_state.logs_last_refresh_ts = datetime.now(tz=UTC).isoformat(timespec="seconds")
         except BackendError as exc:
             st.session_state.logs_last_error = str(exc)
     _append_log_entry(
@@ -312,7 +318,7 @@ def _append_log_entry(
     status: str = "success",
 ) -> None:
     entry = UiLogEntry(
-        timestamp=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
+        timestamp=datetime.now(tz=UTC).isoformat(timespec="seconds"),
         action=action,
         status=status,
         batch_id=batch_id,
@@ -343,7 +349,9 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
     active_clusters = int(metrics["active_clusters"] or 0)
     noise_ratio = float(metrics["noise_ratio"] or 0.0)
     centroid_map = {
-        idx: (float(item[0]), float(item[1])) for idx, item in enumerate(centroids.tolist()) if len(item) == 2
+        idx: (float(item[0]), float(item[1]))
+        for idx, item in enumerate(centroids.tolist())
+        if len(item) == CENTROID_DIMS
     }
     _record_centroid_history(
         batch_id=st.session_state.batch_id,
@@ -444,7 +452,7 @@ def main() -> None:
 
     st.title("Clustering Dashboard")
     st.write(
-        "Explore mock DenStream behavior, drift, and batch-level metrics " "with deterministic synthetic data.",
+        "Explore mock DenStream behavior, drift, and batch-level metrics with deterministic synthetic data.",
     )
 
     client = ApiClient()
@@ -486,7 +494,7 @@ def main() -> None:
     )
     st.session_state.max_history_points = max_history
 
-    if apply_params and (batch_size > 1500 or drift_rate > 1.5):
+    if apply_params and (batch_size > HIGH_BATCH_SIZE or drift_rate > HIGH_DRIFT_RATE):
         st.warning("High values may reduce responsiveness in mock mode.")
 
     if start:

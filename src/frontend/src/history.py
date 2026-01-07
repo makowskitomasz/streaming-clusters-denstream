@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections import deque
 
 
 @dataclass(frozen=True, slots=True)

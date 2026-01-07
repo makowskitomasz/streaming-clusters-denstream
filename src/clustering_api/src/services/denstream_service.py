@@ -7,10 +7,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from loguru import logger
 
-from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.adapters.denstream_clusterer import DenStreamClusterer
 from clustering_api.src.config import config
-from clustering_api.src.models.data_models import Cluster
 from clustering_api.src.services.metrics_service import (
     MetricsRecord,
     MetricsService,
@@ -20,6 +18,12 @@ from clustering_api.src.utils.latency import measure_latency
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+
+    from clustering_api.src.adapters.base_clusterer import BaseClusterer
+    from clustering_api.src.models.data_models import Cluster
+
+ConfigValue = float | int
+DIMENSIONS = 2
 
 
 class DenStreamService:
@@ -32,7 +36,7 @@ class DenStreamService:
         clusterer: BaseClusterer | None = None,
         clusterer_factory: Callable[..., BaseClusterer] | None = None,
         metrics: MetricsService | None = None,
-        **config,
+        **config: ConfigValue,
     ) -> None:
         self._config = {**self.DEFAULT_CONFIG, **config}
         self._factory = clusterer_factory or (lambda **cfg: DenStreamClusterer(**cfg))
@@ -106,11 +110,11 @@ class DenStreamService:
         features = [self._extract_point(item) for item in batch]
         return np.asarray(features, dtype=float)
 
-    def _extract_point(self, item: Any) -> list[float]:
+    def _extract_point(self, item: object) -> list[float]:
         match item:
             case {"x": x, "y": y}:
                 return [float(x), float(y)]
-            case (x, y) if len(item) == 2:
+            case (x, y) if len(item) == DIMENSIONS:
                 return [float(x), float(y)]
             case _ if hasattr(item, "x") and hasattr(item, "y"):
                 return [float(item.x), float(item.y)]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from river import cluster as river_cluster
 
@@ -12,6 +12,7 @@ from clustering_api.src.models.data_models import Cluster, ClusterPoint, DataPoi
 RawPoint = ClusterPoint | DataPoint | dict[str, Any] | Sequence[float]
 FeatureVector = dict[str, float]
 ConfigValue = int | float
+DIMENSIONS = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +94,7 @@ class DenStreamClusterer(BaseClusterer):
                 return {"x": float(item.x), "y": float(item.y)}
             case {"x": x, "y": y}:
                 return {"x": float(x), "y": float(y)}
-            case (x, y) if len(item) == 2:
+            case (x, y) if len(item) == DIMENSIONS:
                 return {"x": float(x), "y": float(y)}
             case _:
                 msg = f"Unsupported data type for DenStreamClusterer: {type(item)}"
@@ -122,10 +123,11 @@ class DenStreamClusterer(BaseClusterer):
 
     def _micro_cluster_centroid(
         self,
-        micro_cluster: Any,
+        micro_cluster: object,
         timestamp: float,
     ) -> tuple[float, float]:
-        center = micro_cluster.calc_center(timestamp)
+        cluster = cast("Any", micro_cluster)
+        center = cluster.calc_center(timestamp)
         return (
             float(center.get("x", center.get(0, 0.0))),
             float(center.get("y", center.get(1, 0.0))),

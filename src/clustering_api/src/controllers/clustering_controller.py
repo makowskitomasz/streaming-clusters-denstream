@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from clustering_api.src.models.data_models import Cluster, ClusterPoint
 from clustering_api.src.services.denstream_service import denstream_service
 
 router = APIRouter(prefix="/v1/clustering", tags=["Clustering"])
+
+if TYPE_CHECKING:
+    from clustering_api.src.models.data_models import Cluster, ClusterPoint
 
 
 class ClusterBatchPayload(BaseModel):

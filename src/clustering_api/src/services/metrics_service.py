@@ -8,6 +8,10 @@ import numpy as np
 from loguru import logger
 from sklearn.metrics import silhouette_score
 
+DIMENSIONS = 2
+MIN_CLUSTERS_FOR_SILHOUETTE = 2
+MIN_SAMPLES_FOR_SILHOUETTE = 2
+
 
 @dataclass(frozen=True, slots=True)
 class MetricsRecord:
@@ -46,7 +50,7 @@ class MetricsService:
             raise ValueError(msg)
         data = np.asarray(features)
         label_array = np.asarray(labels)
-        if data.ndim != 2:
+        if data.ndim != DIMENSIONS:
             msg = f"features must be a 2D array-like structure, got {data.ndim}D"
             raise ValueError(msg)
         if label_array.ndim != 1:
@@ -54,7 +58,7 @@ class MetricsService:
             raise ValueError(msg)
         n_samples = int(data.shape[0])
         if n_samples != int(label_array.size):
-            msg = "features and labels must have matching lengths, " f"got {n_samples} and {label_array.size}"
+            msg = f"features and labels must have matching lengths, got {n_samples} and {label_array.size}"
             raise ValueError(msg)
 
         number_of_clusters = self._count_clusters(label_array)
@@ -89,6 +93,10 @@ class MetricsService:
         records = self._history.get(model_name)
         return tuple(records) if records else ()
 
+    def reset(self) -> None:
+        """Clear all stored metric history."""
+        self._history.clear()
+
     def _store(self, record: MetricsRecord) -> None:
         records = self._history.setdefault(
             record.model_name,
@@ -111,13 +119,13 @@ class MetricsService:
         labels: np.ndarray,
         number_of_clusters: int,
     ) -> float | None:
-        if data.shape[0] < 2 or number_of_clusters < 2:
+        if data.shape[0] < MIN_SAMPLES_FOR_SILHOUETTE or number_of_clusters < MIN_CLUSTERS_FOR_SILHOUETTE:
             return None
         mask = labels != -1
-        if int(np.sum(mask)) < 2:
+        if int(np.sum(mask)) < MIN_SAMPLES_FOR_SILHOUETTE:
             return None
         clustered_labels = labels[mask]
-        if len(set(clustered_labels.tolist())) < 2:
+        if len(set(clustered_labels.tolist())) < MIN_CLUSTERS_FOR_SILHOUETTE:
             return None
         return float(silhouette_score(data[mask], clustered_labels))
 

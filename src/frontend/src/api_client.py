@@ -6,6 +6,8 @@ from http import HTTPStatus
 
 import httpx
 
+DIMENSIONS = 2
+
 
 class BackendError(RuntimeError):
     """Raised when the backend is unreachable or returns an error response."""
@@ -286,7 +288,7 @@ def _as_id(value: object) -> int | str | None:
 
 
 def _parse_centroid(value: object) -> tuple[float, float] | None:
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
+    if not isinstance(value, (list, tuple)) or len(value) != DIMENSIONS:
         return None
     try:
         return (float(value[0]), float(value[1]))

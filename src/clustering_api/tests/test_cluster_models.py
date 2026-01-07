@@ -8,7 +8,7 @@ from clustering_api.src.models.data_models import (
 
 
 def test_cluster_point_weight_validation() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="weight must be positive"):
         ClusterPoint(x=0.0, y=0.0, weight=0)
 
 
@@ -33,4 +33,3 @@ def test_cluster_summary_from_clusters() -> None:
     assert summary.total_points == 15
     assert summary.avg_density == pytest.approx(0.5)
     assert summary.noise_ratio == pytest.approx(5 / 20)
-

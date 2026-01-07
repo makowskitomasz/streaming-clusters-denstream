@@ -6,6 +6,7 @@ from clustering_api.src.services.nyc_taxi_service import NycTaxiService
 # Helper: create small CSV
 # --------------------------
 
+
 def create_sample_csv(tmp_path):
     df = pd.DataFrame(
         {
@@ -29,6 +30,7 @@ def create_sample_csv(tmp_path):
 # --------------------------
 # TESTS
 # --------------------------
+
 
 def test_load_dataframe(tmp_path):
     file_path = create_sample_csv(tmp_path)
@@ -68,7 +70,8 @@ def test_next_batch_order(tmp_path):
     b1 = service.next_batch()
     b2 = service.next_batch()
 
-    assert b1 is not None and b2 is not None
+    assert b1 is not None
+    assert b2 is not None
     assert b1[0].timestamp < b2[0].timestamp  # chronological order
 
 

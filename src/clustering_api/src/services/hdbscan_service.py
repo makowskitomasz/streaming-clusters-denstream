@@ -11,6 +11,8 @@ from loguru import logger
 from clustering_api.src.services.metrics_service import MetricsService, metrics_service
 from clustering_api.src.utils.latency import measure_latency
 
+DIMENSIONS = 2
+
 
 @dataclass(frozen=True, slots=True)
 class HdbscanBatchMetadata:
@@ -91,7 +93,7 @@ class HdbscanService:
             HdbscanBatchResult with labels and evaluation metrics.
         """
         data = np.asarray(features)
-        if data.ndim != 2:
+        if data.ndim != DIMENSIONS:
             msg = f"features must be a 2D array-like structure, got {data.ndim}D"
             raise ValueError(msg)
         n_samples = int(data.shape[0])
@@ -203,7 +205,7 @@ class HdbscanService:
             msg = "metric must be a non-empty string"
             raise ValueError(msg)
         if cluster_selection_method not in {"eom", "leaf"}:
-            msg = "Invalid cluster_selection_method: " f"{cluster_selection_method}, must be 'eom' or 'leaf'"
+            msg = f"Invalid cluster_selection_method: {cluster_selection_method}, must be 'eom' or 'leaf'"
             raise ValueError(msg)
         if history_size <= 0:
             msg = f"history_size must be greater than 0, got {history_size}"

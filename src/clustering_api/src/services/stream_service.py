@@ -14,6 +14,8 @@ from clustering_api.src.models.data_models import (
     map_batch_to_clusterpoints,
 )
 
+DIMENSIONS = 2
+
 
 class StreamConfigError(ValueError):
     """Raised when stream configuration is invalid."""
@@ -104,8 +106,8 @@ class StreamService:
         noise_bounds: tuple[float, float] = (-8.0, 8.0),
     ) -> list[ClusterPoint]:
         """Generate a deterministic batch from supplied centroids and noise ratio."""
-        if centroids.ndim != 2 or centroids.shape[1] != 2:
-            msg = "centroids must be a 2D array with shape (k, 2), " f"got {centroids.shape}"
+        if centroids.ndim != DIMENSIONS or centroids.shape[1] != DIMENSIONS:
+            msg = f"centroids must be a 2D array with shape (k, 2), got {centroids.shape}"
             raise StreamConfigError(msg)
         if points_per_cluster <= 0:
             msg = f"points_per_cluster must be greater than 0, got {points_per_cluster}"
@@ -122,7 +124,7 @@ class StreamService:
         cluster_points = rng.normal(
             loc=0.0,
             scale=0.5,
-            size=(total_clusters, points_per_cluster, 2),
+            size=(total_clusters, points_per_cluster, DIMENSIONS),
         )
         cluster_points = centroids[:, None, :] + cluster_points
         noise_points = rng.uniform(
@@ -232,7 +234,7 @@ class StreamService:
 
     def _initialize_centroids(self, n_clusters: int) -> np.ndarray:
         rng = np.random.default_rng()
-        return rng.uniform(-5, 5, size=(n_clusters, 2))
+        return rng.uniform(-5, 5, size=(n_clusters, DIMENSIONS))
 
     def _populate_cluster_records(
         self,
@@ -241,9 +243,16 @@ class StreamService:
     ) -> int:
         cluster_points = self._generate_cluster_points()
         cluster_ids = np.repeat(np.arange(self._n_clusters), self._points_per_cluster)
-        flattened = cluster_points.reshape(-1, 2)
-        for idx, (point, cluster_id) in enumerate(zip(flattened, cluster_ids)):
-            records[idx] = self._build_record(point, timestamp, cluster_id, False)
+        flattened = cluster_points.reshape(-1, DIMENSIONS)
+        for idx, (point, cluster_id) in enumerate(
+            zip(flattened, cluster_ids, strict=True),
+        ):
+            records[idx] = self._build_record(
+                point,
+                timestamp,
+                cluster_id,
+                noise=False,
+            )
         return len(flattened)
 
     def _populate_noise_records(
@@ -254,26 +263,32 @@ class StreamService:
     ) -> None:
         noise_points = self._generate_noise_points()
         for offset, point in enumerate(noise_points):
-            records[start_index + offset] = self._build_record(point, timestamp, -1, True)
+            records[start_index + offset] = self._build_record(
+                point,
+                timestamp,
+                -1,
+                noise=True,
+            )
 
     def _generate_cluster_points(self) -> np.ndarray:
         rng = np.random.default_rng()
         noise_component = rng.normal(
             loc=0.0,
             scale=0.5,
-            size=(self._n_clusters, self._points_per_cluster, 2),
+            size=(self._n_clusters, self._points_per_cluster, DIMENSIONS),
         )
         return self._centroids[:, None, :] + noise_component
 
     def _generate_noise_points(self) -> np.ndarray:
         rng = np.random.default_rng()
-        return rng.uniform(-8, 8, size=(self._noise_points_count(), 2))
+        return rng.uniform(-8, 8, size=(self._noise_points_count(), DIMENSIONS))
 
     def _build_record(
         self,
         point: np.ndarray,
         timestamp: float,
         cluster_id: int,
+        *,
         noise: bool,
     ) -> DataPoint:
         return DataPoint(
