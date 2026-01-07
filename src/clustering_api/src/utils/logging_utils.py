@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections import deque
-from collections.abc import Deque, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, TypedDict
@@ -38,7 +38,9 @@ class _LoguruMessage(Protocol):
 @dataclass
 class LoggingState:
     configured: bool = False
-    recent_logs: Deque[LogPayload] = field(default_factory=lambda: deque(maxlen=1000))
+    recent_logs: deque[LogPayload] = field(
+        default_factory=lambda: deque(maxlen=1000)
+    )
 
 
 _STATE = LoggingState()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from time import perf_counter, time
 
 import numpy as np
@@ -247,7 +247,7 @@ def _record_centroid_history(
         return
     snapshot = CentroidSnapshot(
         batch_id=batch_id,
-        timestamp=datetime.now(tz=datetime.timezone.utc).isoformat(timespec="seconds"),
+        timestamp=datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
         centroids=centroid_map,
     )
     st.session_state.centroid_history = append_history(
@@ -266,9 +266,9 @@ def _refresh_logs(client: ApiClient, limit: int) -> None:
         logs = client.get_recent_logs(limit=limit)
         st.session_state.recent_logs = logs
         st.session_state.logs_last_error = None
-        st.session_state.logs_last_refresh_ts = datetime.now(tz=datetime.timezone.utc).isoformat(
-            timespec="seconds",
-        )
+        st.session_state.logs_last_refresh_ts = datetime.now(
+            tz=timezone.utc
+        ).isoformat(timespec="seconds")
     except BackendError as exc:
         st.session_state.logs_last_error = str(exc)
 
@@ -284,7 +284,7 @@ def _append_log_entry(
     status: str = "success",
 ) -> None:
     entry = {
-        "timestamp": datetime.now(tz=datetime.timezone.utc).isoformat(timespec="seconds"),
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
         "action": action,
         "status": status,
         "batch_id": batch_id,

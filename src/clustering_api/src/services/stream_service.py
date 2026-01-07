@@ -212,13 +212,15 @@ class StreamService:
 
     def _update_centroids(self) -> None:
         """Apply random drift to all centroids."""
-        drift_vector = np.random.Generator().uniform(
-            -self._drift, self._drift, size=self._centroids.shape,
+        rng = np.random.default_rng()
+        drift_vector = rng.uniform(
+            -self._drift, self._drift, size=self._centroids.shape
         )
         self._centroids = self._centroids + drift_vector
 
     def _initialize_centroids(self, n_clusters: int) -> np.ndarray:
-        return np.random.Generator().uniform(-5, 5, size=(n_clusters, 2))
+        rng = np.random.default_rng()
+        return rng.uniform(-5, 5, size=(n_clusters, 2))
 
     def _populate_cluster_records(
         self, records: list[DataPoint | None], timestamp: float,
@@ -241,7 +243,8 @@ class StreamService:
             records[start_index + offset] = self._build_record(point, timestamp, -1, True)
 
     def _generate_cluster_points(self) -> np.ndarray:
-        noise_component = np.random.Generator.normal(
+        rng = np.random.default_rng()
+        noise_component = rng.normal(
             loc=0.0,
             scale=0.5,
             size=(self._n_clusters, self._points_per_cluster, 2),
@@ -249,7 +252,8 @@ class StreamService:
         return self._centroids[:, None, :] + noise_component
 
     def _generate_noise_points(self) -> np.ndarray:
-        return np.random.Generator().uniform(-8, 8, size=(self._noise_points_count(), 2))
+        rng = np.random.default_rng()
+        return rng.uniform(-8, 8, size=(self._noise_points_count(), 2))
 
     def _build_record(
         self, point: np.ndarray, timestamp: float, cluster_id: int, noise: bool,
