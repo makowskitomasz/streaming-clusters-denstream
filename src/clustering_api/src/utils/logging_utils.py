@@ -35,7 +35,24 @@ class _LoguruMessage(Protocol):
     record: _LoguruRecord
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
+class LogEntry:
+    timestamp: str
+    level: str
+    message: str
+    extra: LogExtra
+
+    def to_payload(self) -> LogPayload:
+        payload: LogPayload = {
+            "timestamp": self.timestamp,
+            "level": self.level,
+            "message": self.message,
+        }
+        payload.update(self.extra)
+        return payload
+
+
+@dataclass(slots=True)
 class LoggingState:
     configured: bool = False
     recent_logs: deque[LogPayload] = field(
@@ -124,14 +141,13 @@ def _log_sink(message: _LoguruMessage) -> None:
     assert hasattr(lvl, "name")
     assert isinstance(msg, str)
 
-    payload: LogPayload = {
-        "timestamp": t.isoformat(),  # type: ignore[call-arg]
-        "level": lvl.name,           # type: ignore[attr-defined]
-        "message": msg,
-    }
-
     extra = record.get("extra", {})
-    if isinstance(extra, Mapping):
-        payload.update(extra)  # values are object; TypedDict is total=False
+    extra_map = extra if isinstance(extra, Mapping) else {}
 
-    _STATE.recent_logs.append(payload)
+    entry = LogEntry(
+        timestamp=t.isoformat(),  # type: ignore[call-arg]
+        level=lvl.name,           # type: ignore[attr-defined]
+        message=msg,
+        extra=extra_map,
+    )
+    _STATE.recent_logs.append(entry.to_payload())

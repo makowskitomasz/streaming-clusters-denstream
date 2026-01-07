@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ClusterDrift:
     """Per-cluster drift metrics for a single update cycle."""
 
@@ -22,7 +22,7 @@ class ClusterDrift:
     last_seen: float | int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DriftUpdate:
     """Summary of drift metrics and lifecycle events for one update cycle."""
 
@@ -135,7 +135,9 @@ class DriftTracker:
             self._ema_distance.pop(cluster_id, None)
             self._ema_direction.pop(cluster_id, None)
 
-        self._prev_centroids = {cid: centroid.copy() for cid, centroid in current.items()}
+        self._prev_centroids = {
+            cid: centroid.copy() for cid, centroid in current.items()
+        }
 
         mean_drift = float(np.mean(distances)) if distances else None
         max_drift = float(np.max(distances)) if distances else None

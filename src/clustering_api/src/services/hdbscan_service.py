@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -8,9 +9,10 @@ from hdbscan import HDBSCAN
 from loguru import logger
 
 from clustering_api.src.services.metrics_service import MetricsService, metrics_service
+from clustering_api.src.utils.latency import measure_latency
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class HdbscanBatchMetadata:
     """Metadata describing a processed batch."""
 
@@ -19,7 +21,7 @@ class HdbscanBatchMetadata:
     n_samples: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class HdbscanBatchResult:
     """Result of running HDBSCAN on a single batch.
 
@@ -71,7 +73,7 @@ class HdbscanService:
         }
         self._random_state = random_state
         self._history_size = history_size
-        self._history: list[HdbscanBatchMetadata] = []
+        self._history: deque[HdbscanBatchMetadata] = deque(maxlen=history_size)
         self._metrics = metrics or metrics_service
 
     def cluster_batch(
@@ -110,21 +112,21 @@ class HdbscanService:
                 n_samples=0,
             )
 
-        start = time.perf_counter()
-        clusterer = self._build_clusterer()
-        labels = self._fit_predict(clusterer, data)
-        metrics_record = self._metrics.evaluate(
-            data,
-            labels,
-            model_name="hdbscan",
-            batch_id=batch_id,
-        )
+        with measure_latency() as timer:
+            clusterer = self._build_clusterer()
+            labels = self._fit_predict(clusterer, data)
+            metrics_record = self._metrics.evaluate(
+                data,
+                labels,
+                model_name="hdbscan",
+                batch_id=batch_id,
+            )
         self._log_batch_stats(
             n_samples=metrics_record.n_samples,
             number_of_clusters=metrics_record.number_of_clusters,
             noise_ratio=metrics_record.noise_ratio,
             batch_id=metrics_record.batch_id,
-            latency_ms=(time.perf_counter() - start) * 1000,
+            latency_ms=timer.ms,
         )
         return HdbscanBatchResult(
             labels=labels.tolist(),
@@ -164,9 +166,6 @@ class HdbscanService:
                 n_samples=n_samples,
             ),
         )
-        if len(self._history) > self._history_size:
-            excess = len(self._history) - self._history_size
-            self._history = self._history[excess:]
 
     def _summarize_cluster_sizes(
         self, labels: np.ndarray,
@@ -203,7 +202,10 @@ class HdbscanService:
             msg = "metric must be a non-empty string"
             raise ValueError(msg)
         if cluster_selection_method not in {"eom", "leaf"}:
-            msg = f"Invalid cluster_selection_method: {cluster_selection_method}, must be 'eom' or 'leaf'"
+            msg = (
+                "Invalid cluster_selection_method: "
+                f"{cluster_selection_method}, must be 'eom' or 'leaf'"
+            )
             raise ValueError(msg)
         if history_size <= 0:
             msg = f"history_size must be greater than 0, got {history_size}"
@@ -211,6 +213,7 @@ class HdbscanService:
         if random_state is not None and random_state < 0:
             msg = f"random_state must be non-negative when provided, got {random_state}"
             raise ValueError(msg)
+
     def _log_batch_stats(
         self,
         *,
