@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+if TYPE_CHECKING:
+    from collections import deque
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, slots=True)
 class CentroidSnapshot:
     """Snapshot of centroid positions at a given step."""
 
@@ -15,19 +19,16 @@ class CentroidSnapshot:
 
 
 def append_history(
-    history: list[CentroidSnapshot],
+    history: deque[CentroidSnapshot],
     snapshot: CentroidSnapshot,
-    max_len: int,
-) -> list[CentroidSnapshot]:
-    """Append a snapshot and trim history to max_len."""
+) -> None:
+    """Append a snapshot to the history buffer."""
     history.append(snapshot)
-    if max_len > 0 and len(history) > max_len:
-        history = history[-max_len:]
-    return history
 
 
 def compute_centroids_from_points(
-    points: np.ndarray, labels: np.ndarray,
+    points: np.ndarray,
+    labels: np.ndarray,
 ) -> dict[int, tuple[float, float]]:
     """Compute centroids from points/labels, excluding noise (-1)."""
     centroids: dict[int, tuple[float, float]] = {}

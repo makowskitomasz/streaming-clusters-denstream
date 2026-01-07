@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from fastapi import APIRouter
@@ -12,21 +14,30 @@ service = NycTaxiService(
     batch_size=500,
 )
 
+
 class NextBatchEmpty(BaseModel):
+    """Response when no more data is available."""
+
     message: Literal["No more data available."]
     batch_id: int
     data: list[dict]
 
+
 class NextBatchOk(BaseModel):
+    """Response when a batch is returned."""
+
     message: Literal["Batch generated."]
     batch_id: int
     size: int
     points: list[dict]
 
+
 NextBatchResponse = NextBatchEmpty | NextBatchOk
+
 
 @router.get("/next-batch")
 def next_batch() -> NextBatchResponse:
+    """Return the next batch from the NYC taxi stream."""
     batch = service.next_batch()
     if batch is None:
         return NextBatchEmpty(
@@ -45,6 +56,7 @@ def next_batch() -> NextBatchResponse:
 
 @router.get("/next-batch-cluster-points")
 def next_batch_cluster_points() -> NextBatchResponse:
+    """Return the next batch of cluster points."""
     batch = service.next_batch_cluster_points()
     if batch is None:
         return NextBatchEmpty(
@@ -62,5 +74,6 @@ def next_batch_cluster_points() -> NextBatchResponse:
 
 @router.post("/reset")
 def reset_stream() -> dict[str, str | int]:
+    """Reset the NYC Taxi stream iterator."""
     service.reset()
     return {"message": "NYC Taxi stream reset.", "batch_id": service.batch_id}

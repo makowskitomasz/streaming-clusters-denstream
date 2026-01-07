@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
 from loguru import logger
 from sklearn.metrics import silhouette_score
 
+DIMENSIONS = 2
+MIN_CLUSTERS_FOR_SILHOUETTE = 2
+MIN_SAMPLES_FOR_SILHOUETTE = 2
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, slots=True)
 class MetricsRecord:
     """Snapshot of clustering evaluation metrics."""
 
@@ -29,7 +34,7 @@ class MetricsService:
             msg = f"history_size must be greater than 0, got {history_size}"
             raise ValueError(msg)
         self._history_size = history_size
-        self._history: dict[str, list[MetricsRecord]] = {}
+        self._history: dict[str, deque[MetricsRecord]] = {}
 
     def evaluate(
         self,
@@ -45,7 +50,7 @@ class MetricsService:
             raise ValueError(msg)
         data = np.asarray(features)
         label_array = np.asarray(labels)
-        if data.ndim != 2:
+        if data.ndim != DIMENSIONS:
             msg = f"features must be a 2D array-like structure, got {data.ndim}D"
             raise ValueError(msg)
         if label_array.ndim != 1:
@@ -74,31 +79,33 @@ class MetricsService:
         return record
 
     def get_latest(
-        self, model_name: str | None = None,
+        self,
+        model_name: str | None = None,
     ) -> MetricsRecord | None | dict[str, MetricsRecord]:
         """Return the latest metrics record for a model or for all models."""
         if model_name is None:
-            return {
-                name: records[-1]
-                for name, records in self._history.items()
-                if records
-            }
-        records = self._history.get(model_name, [])
+            return {name: records[-1] for name, records in self._history.items() if records}
+        records = self._history.get(model_name)
         return records[-1] if records else None
 
     def get_history(self, model_name: str) -> tuple[MetricsRecord, ...]:
         """Return a read-only copy of stored metrics for a model."""
-        return tuple(self._history.get(model_name, []))
+        records = self._history.get(model_name)
+        return tuple(records) if records else ()
+
+    def reset(self) -> None:
+        """Clear all stored metric history."""
+        self._history.clear()
 
     def _store(self, record: MetricsRecord) -> None:
-        records = self._history.setdefault(record.model_name, [])
+        records = self._history.setdefault(
+            record.model_name,
+            deque(maxlen=self._history_size),
+        )
         records.append(record)
-        if len(records) > self._history_size:
-            excess = len(records) - self._history_size
-            self._history[record.model_name] = records[excess:]
 
     def _count_clusters(self, labels: np.ndarray) -> int:
-        return len({int(label) for label in set(labels.tolist()) if int(label) != -1})
+        return len({int(label) for label in labels.tolist() if int(label) != -1})
 
     def _compute_noise_ratio(self, labels: np.ndarray, n_samples: int) -> float:
         if n_samples == 0:
@@ -107,15 +114,18 @@ class MetricsService:
         return noise_count / n_samples
 
     def _safe_silhouette_score(
-        self, data: np.ndarray, labels: np.ndarray, number_of_clusters: int,
+        self,
+        data: np.ndarray,
+        labels: np.ndarray,
+        number_of_clusters: int,
     ) -> float | None:
-        if data.shape[0] < 2 or number_of_clusters < 2:
+        if data.shape[0] < MIN_SAMPLES_FOR_SILHOUETTE or number_of_clusters < MIN_CLUSTERS_FOR_SILHOUETTE:
             return None
         mask = labels != -1
-        if int(np.sum(mask)) < 2:
+        if int(np.sum(mask)) < MIN_SAMPLES_FOR_SILHOUETTE:
             return None
         clustered_labels = labels[mask]
-        if len(set(clustered_labels.tolist())) < 2:
+        if len(set(clustered_labels.tolist())) < MIN_CLUSTERS_FOR_SILHOUETTE:
             return None
         return float(silhouette_score(data[mask], clustered_labels))
 

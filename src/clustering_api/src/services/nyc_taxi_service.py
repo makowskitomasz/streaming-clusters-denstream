@@ -1,6 +1,6 @@
-from collections.abc import Iterator
 from itertools import islice
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -9,6 +9,9 @@ from clustering_api.src.models.data_models import (
     DataPoint,
     map_datapoint_to_clusterpoint,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class NycTaxiService:
@@ -26,10 +29,11 @@ class NycTaxiService:
 
     def load_df(self) -> pd.DataFrame:
         """Load CSV/Parquet file, keep relevant columns, and order chronologically."""
-        if self._file_path.suffix == ".parquet":
-            df = pd.read_parquet(self._file_path)
-        else:
-            df = pd.read_csv(self._file_path)
+        match self._file_path.suffix:
+            case ".parquet":
+                df = pd.read_parquet(self._file_path)
+            case _:
+                df = pd.read_csv(self._file_path)
 
         df = df[
             [
@@ -44,37 +48,12 @@ class NycTaxiService:
         df["tpep_pickup_datetime"] = pd.to_datetime(df["tpep_pickup_datetime"])
         return df.sort_values("tpep_pickup_datetime")
 
-
     def _df_to_datapoint(self, row: pd.Series) -> DataPoint:
-        grid_x = int(row["pickup_longitude"] * 100)
-        grid_y = int(row["pickup_latitude"] * 100)
-        cluster_id = abs(hash((grid_x, grid_y))) % 500
-
-        return DataPoint(
-            x=float(row["pickup_longitude"]),
-            y=float(row["pickup_latitude"]),
-            timestamp=row["tpep_pickup_datetime"].timestamp(),
-            cluster_id=cluster_id,
-            source="nyc_taxi",
-            batch_id=self.batch_id,
-            noise=None,
-        )
+        return self._row_to_datapoint(row)
 
     def _df_to_clusterpoint(self, row: pd.Series) -> ClusterPoint:
-        grid_x = int(row["pickup_longitude"] * 100)
-        grid_y = int(row["pickup_latitude"] * 100)
-        cluster_id = abs(hash((grid_x, grid_y))) % 500
-
         return map_datapoint_to_clusterpoint(
-            DataPoint(
-                x=float(row["pickup_longitude"]),
-                y=float(row["pickup_latitude"]),
-                timestamp=row["tpep_pickup_datetime"].timestamp(),
-                cluster_id=cluster_id,
-                source="nyc_taxi",
-                batch_id=self.batch_id,
-                noise=None,
-            ),
+            self._row_to_datapoint(row),
         )
 
     def _ensure_iterator(self) -> None:
@@ -93,9 +72,8 @@ class NycTaxiService:
         self.batch_id += 1
         return [self._df_to_datapoint(row) for _, row in rows]
 
-
     def next_batch_cluster_points(self) -> list[ClusterPoint] | None:
-        """Return the next batch of cluster points or ``None`` if stream is exhausted."""
+        """Return the next batch of cluster points or ``None`` if exhausted."""
         self._ensure_iterator()
 
         rows = list(islice(self._iterator, self._batch_size))
@@ -105,8 +83,21 @@ class NycTaxiService:
         self.batch_id += 1
         return [self._df_to_clusterpoint(row) for _, row in rows]
 
-
     def reset(self) -> None:
         """Reset internal iterator and batch counter."""
         self._iterator = None
         self.batch_id = 0
+
+    def _row_to_datapoint(self, row: pd.Series) -> DataPoint:
+        grid_x = int(row["pickup_longitude"] * 100)
+        grid_y = int(row["pickup_latitude"] * 100)
+        cluster_id = abs(hash((grid_x, grid_y))) % 500
+        return DataPoint(
+            x=float(row["pickup_longitude"]),
+            y=float(row["pickup_latitude"]),
+            timestamp=row["tpep_pickup_datetime"].timestamp(),
+            cluster_id=cluster_id,
+            source="nyc_taxi",
+            batch_id=self.batch_id,
+            noise=None,
+        )

@@ -38,7 +38,7 @@ def test_metrics_service_handles_all_noise():
 
 def test_metrics_latest_endpoint():
     # Arrange
-    metrics_service._history = {}
+    metrics_service.reset()
     client = TestClient(create_app())
     features = np.array([[0.0, 0.0], [1.0, 1.0]])
     labels = np.array([0, 0])

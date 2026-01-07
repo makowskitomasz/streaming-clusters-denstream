@@ -2,7 +2,7 @@ import json
 
 import httpx
 import pytest
-from frontend.api_client import ApiClient, BackendError, StreamParams
+from api_client import ApiClient, BackendError, StreamParams
 
 
 def test_start_stream_payload():

@@ -1,5 +1,5 @@
-import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from pyaml_env import parse_config
 
@@ -24,6 +24,6 @@ class ClusteringConfig:
         self.denstream = ClusteringConfig.DenStream(**denstream)
 
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, "..", "config.yaml")
+current_dir = Path(__file__).resolve().parent
+config_path = current_dir / ".." / "config.yaml"
 config = ClusteringConfig(**parse_config(path=config_path))

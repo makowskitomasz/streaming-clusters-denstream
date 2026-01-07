@@ -4,8 +4,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+MIN_AGE_FOR_DRIFT = 2
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, slots=True)
 class ClusterDrift:
     """Per-cluster drift metrics for a single update cycle."""
 
@@ -22,7 +24,7 @@ class ClusterDrift:
     last_seen: float | int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DriftUpdate:
     """Summary of drift metrics and lifecycle events for one update cycle."""
 
@@ -103,7 +105,9 @@ class DriftTracker:
             direction = self._normalize_direction(displacement, distance)
             speed = distance / dt if dt > 0 else 0.0
             ema_distance, ema_direction = self._update_ema(
-                cluster_id, distance, direction,
+                cluster_id,
+                distance,
+                direction,
             )
             age = self._ages.get(cluster_id, 0) + 1
             self._ages[cluster_id] = age
@@ -158,15 +162,11 @@ class DriftTracker:
     def get_state(self) -> dict[str, dict[int, np.ndarray | float | int]]:
         """Return a read-only snapshot of internal state."""
         return {
-            "centroids": {
-                cid: centroid.copy() for cid, centroid in self._prev_centroids.items()
-            },
+            "centroids": {cid: centroid.copy() for cid, centroid in self._prev_centroids.items()},
             "ages": dict(self._ages),
             "last_seen": dict(self._last_seen),
             "ema_distance": dict(self._ema_distance),
-            "ema_direction": {
-                cid: direction.copy() for cid, direction in self._ema_direction.items()
-            },
+            "ema_direction": {cid: direction.copy() for cid, direction in self._ema_direction.items()},
         }
 
     def reset(self) -> None:
@@ -193,22 +193,24 @@ class DriftTracker:
         high_drift: list[int] = []
         for cluster_id in self._prev_centroids:
             age = self._ages.get(cluster_id, 0)
-            if age < 2:
+            if age < MIN_AGE_FOR_DRIFT:
                 continue
             ema_distance = self._ema_distance.get(cluster_id)
-            if distance_threshold is not None and ema_distance is not None:
-                if ema_distance > distance_threshold:
-                    high_drift.append(cluster_id)
-                    continue
-            if speed_threshold is not None:
-                if ema_distance is not None and ema_distance > 0:
-                    speed = ema_distance
-                    if speed > speed_threshold:
-                        high_drift.append(cluster_id)
+            if distance_threshold is not None and ema_distance is not None and ema_distance > distance_threshold:
+                high_drift.append(cluster_id)
+                continue
+            if (
+                speed_threshold is not None
+                and ema_distance is not None
+                and ema_distance > 0
+                and ema_distance > speed_threshold
+            ):
+                high_drift.append(cluster_id)
         return sorted(set(high_drift))
 
     def _sanitize_centroids(
-        self, centroids: dict[int, np.ndarray],
+        self,
+        centroids: dict[int, np.ndarray],
     ) -> dict[int, np.ndarray]:
         sanitized: dict[int, np.ndarray] = {}
         for cluster_id, centroid in centroids.items():
@@ -242,14 +244,19 @@ class DriftTracker:
         return dt
 
     def _normalize_direction(
-        self, displacement: np.ndarray, distance: float,
+        self,
+        displacement: np.ndarray,
+        distance: float,
     ) -> np.ndarray | None:
         if distance == 0.0:
             return None
         return displacement / distance
 
     def _update_ema(
-        self, cluster_id: int, distance: float, direction: np.ndarray | None,
+        self,
+        cluster_id: int,
+        distance: float,
+        direction: np.ndarray | None,
     ) -> tuple[float | None, np.ndarray | None]:
         if self._ema_alpha is None:
             return None, None

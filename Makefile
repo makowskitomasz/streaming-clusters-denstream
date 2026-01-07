@@ -2,7 +2,7 @@ APP_NAME=streaming-clusters-denstream
 DOCKER_IMAGE_BACKEND=$(APP_NAME)-backend:latest
 DOCKER_IMAGE_FRONTEND=$(APP_NAME)-frontend:latest
 
-.PHONY: help build-backend build-frontend up-backend up-frontend run-backend run-frontend test lint lint-fix format shell logs
+.PHONY: help build-backend build-frontend up-backend up-frontend run-backend run-frontend test lint lint-fix format check hooks dev-sync shell logs
 
 help:
 	@echo "Available commands:"
@@ -15,6 +15,9 @@ help:
 	@echo "  make test       - Run pytest via uv"
 	@echo "  make lint       - Run ruff and mypy"
 	@echo "  make format     - Format code with black and ruff"
+	@echo "  make check      - Run lint and tests"
+	@echo "  make hooks      - Install git hooks via pre-commit"
+	@echo "  make dev-sync   - Install dev dependencies with uv"
 	@echo "  make shell      - Open container shell"
 	@echo "  make logs       - View docker compose logs"
 
@@ -41,7 +44,7 @@ test:
 
 lint:
 	uv run ruff check . --output-format=full
-# 	uv run mypy src/frontend/src
+	uv run mypy src/frontend/src
 
 lint-fix:
 	uv run ruff check . --output-format=full --fix
@@ -49,6 +52,15 @@ lint-fix:
 format:
 	uv run black .
 	uv run ruff format .
+
+check: lint test
+
+hooks:
+	pre-commit install
+	pre-commit install --hook-type pre-push
+
+dev-sync:
+	uv sync --group dev
 
 shell:
 	docker run -it --rm $(DOCKER_IMAGE_BACKEND) sh
