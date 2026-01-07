@@ -1,0 +1,157 @@
+.
+├── CODING_GUIDELINES.md
+├── LICENSE
+├── Makefile
+├── README.md
+├── data
+│   ├── yellow_tripdata_2016-01.csv
+│   └── yellow_tripdata_2016-01_batch.csv
+├── docker
+│   ├── api
+│   │   └── Dockerfile
+│   └── frontend
+│       └── Dockerfile
+├── docker-compose.yml
+├── docs
+│   └── ui
+│       └── STREAMLIT_UI_SPEC.md
+├── environment.yml
+├── notebooks
+├── pyproject.toml
+├── src
+│   ├── clustering_api
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   └── __init__.cpython-313.pyc
+│   │   ├── config.yaml
+│   │   ├── src
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   ├── app.cpython-313.pyc
+│   │   │   │   ├── config.cpython-313.pyc
+│   │   │   │   └── main.cpython-313.pyc
+│   │   │   ├── adapters
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   │   ├── base_clusterer.cpython-313.pyc
+│   │   │   │   │   └── denstream_clusterer.cpython-313.pyc
+│   │   │   │   ├── base_clusterer.py
+│   │   │   │   └── denstream_clusterer.py
+│   │   │   ├── app.py
+│   │   │   ├── config.py
+│   │   │   ├── controllers
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   │   ├── clustering_controller.cpython-313.pyc
+│   │   │   │   │   ├── health_controller.cpython-313.pyc
+│   │   │   │   │   ├── logs_controller.cpython-313.pyc
+│   │   │   │   │   ├── metrics_controller.cpython-313.pyc
+│   │   │   │   │   ├── nyc_taxi_controller.cpython-313.pyc
+│   │   │   │   │   └── stream_controller.cpython-313.pyc
+│   │   │   │   ├── clustering_controller.py
+│   │   │   │   ├── health_controller.py
+│   │   │   │   ├── logs_controller.py
+│   │   │   │   ├── metrics_controller.py
+│   │   │   │   ├── nyc_taxi_controller.py
+│   │   │   │   └── stream_controller.py
+│   │   │   ├── data
+│   │   │   ├── logs
+│   │   │   │   └── clustering.jsonl
+│   │   │   ├── main.py
+│   │   │   ├── models
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   │   └── data_models.cpython-313.pyc
+│   │   │   │   └── data_models.py
+│   │   │   ├── services
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   │   ├── __init__.cpython-313.pyc
+│   │   │   │   │   ├── denstream_service.cpython-313.pyc
+│   │   │   │   │   ├── hdbscan_service.cpython-313.pyc
+│   │   │   │   │   ├── metrics_service.cpython-313.pyc
+│   │   │   │   │   ├── nyc_taxi_service.cpython-313.pyc
+│   │   │   │   │   └── stream_service.cpython-313.pyc
+│   │   │   │   ├── denstream_service.py
+│   │   │   │   ├── hdbscan_service.py
+│   │   │   │   ├── metrics_service.py
+│   │   │   │   ├── nyc_taxi_service.py
+│   │   │   │   └── stream_service.py
+│   │   │   └── utils
+│   │   │       ├── __init__.py
+│   │   │       ├── __pycache__
+│   │   │       │   ├── __init__.cpython-313.pyc
+│   │   │       │   ├── drift_tracker.cpython-313.pyc
+│   │   │       │   └── logging_utils.cpython-313.pyc
+│   │   │       ├── drift_tracker.py
+│   │   │       └── logging_utils.py
+│   │   └── tests
+│   │       ├── __init__.py
+│   │       ├── __pycache__
+│   │       │   ├── __init__.cpython-313.pyc
+│   │       │   ├── test_cluster_models.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_denstream_service.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_drift_tracker.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_dummy.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_hdbscan_service.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_logging_utils.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_metrics_service.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_nyc_taxi_service.cpython-313-pytest-9.0.2.pyc
+│   │       │   ├── test_stream_controller.cpython-313-pytest-9.0.2.pyc
+│   │       │   └── test_stream_service.cpython-313-pytest-9.0.2.pyc
+│   │       ├── functional
+│   │       │   ├── __pycache__
+│   │       │   │   └── test_clustering_streams.cpython-313-pytest-9.0.2.pyc
+│   │       │   └── test_clustering_streams.py
+│   │       ├── test_cluster_models.py
+│   │       ├── test_denstream_service.py
+│   │       ├── test_drift_tracker.py
+│   │       ├── test_hdbscan_service.py
+│   │       ├── test_logging_utils.py
+│   │       ├── test_metrics_service.py
+│   │       ├── test_nyc_taxi_service.py
+│   │       ├── test_stream_controller.py
+│   │       └── test_stream_service.py
+│   └── frontend
+│       ├── __pycache__
+│       │   ├── __init__.cpython-313.pyc
+│       │   ├── api_client.cpython-313.pyc
+│       │   ├── history.cpython-313.pyc
+│       │   └── plotting.cpython-313.pyc
+│       ├── src
+│       │   ├── __init__.py
+│       │   ├── app.py
+│       │   └── frontend
+│       │       ├── __init__.py
+│       │       ├── __pycache__
+│       │       │   ├── __init__.cpython-313.pyc
+│       │       │   ├── api_client.cpython-313.pyc
+│       │       │   ├── history.cpython-313.pyc
+│       │       │   └── plotting.cpython-313.pyc
+│       │       ├── api_client.py
+│       │       ├── history.py
+│       │       └── plotting.py
+│       └── tests
+│           ├── __init__.py
+│           ├── __pycache__
+│           │   ├── __init__.cpython-313.pyc
+│           │   ├── conftest.cpython-313-pytest-9.0.2.pyc
+│           │   ├── test_api_client.cpython-313-pytest-9.0.2.pyc
+│           │   ├── test_history.cpython-313-pytest-9.0.2.pyc
+│           │   ├── test_logs_parsing.cpython-313-pytest-9.0.2.pyc
+│           │   ├── test_metrics_model.cpython-313-pytest-9.0.2.pyc
+│           │   └── test_plotting.cpython-313-pytest-9.0.2.pyc
+│           ├── conftest.py
+│           ├── test_api_client.py
+│           ├── test_history.py
+│           ├── test_logs_parsing.py
+│           ├── test_metrics_model.py
+│           └── test_plotting.py
+├── tree.txt
+└── uv.lock
+
+36 directories, 119 files

@@ -6,19 +6,15 @@ from time import perf_counter, time
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
-from frontend.api_client import (
+from api_client import (
     ApiClient,
     BackendError,
     MetricsLatestResponse,
     StreamParams,
     StreamPoint,
 )
-from frontend.history import CentroidSnapshot, append_history, compute_centroids_from_points
-from frontend.plotting import (
-    build_centroid_trajectories,
-    build_cluster_scatter,
-    build_logs_timeline,
-)
+from history import CentroidSnapshot, append_history, compute_centroids_from_points
+from plotting import build_centroid_trajectories, build_cluster_scatter, build_logs_timeline
 
 try:
     from streamlit_autorefresh import st_autorefresh  # type: ignore[import-not-found]

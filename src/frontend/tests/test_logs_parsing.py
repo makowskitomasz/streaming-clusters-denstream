@@ -1,4 +1,4 @@
-from frontend.api_client import LogRecord
+from api_client import LogRecord
 
 
 def test_log_record_parses_missing_fields() -> None:

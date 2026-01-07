@@ -7,7 +7,7 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]
 from plotly import colors as plotly_colors
 
 if TYPE_CHECKING:
-    from frontend.api_client import LogRecord
+    from api_client import LogRecord
 
 def build_cluster_scatter(
     points: list[tuple[float, float]],

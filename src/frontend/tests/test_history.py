@@ -1,7 +1,7 @@
 import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
-from frontend.history import CentroidSnapshot, append_history, compute_centroids_from_points
-from frontend.plotting import build_centroid_trajectories
+from history import CentroidSnapshot, append_history, compute_centroids_from_points
+from plotting import build_centroid_trajectories
 
 
 def test_append_history_trims() -> None:

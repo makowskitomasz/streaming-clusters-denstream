@@ -1,5 +1,5 @@
 import plotly.graph_objects as go  # type: ignore[import-untyped]
-from frontend.plotting import build_cluster_scatter
+from plotting import build_cluster_scatter
 
 
 def test_build_cluster_scatter_creates_figure() -> None:
