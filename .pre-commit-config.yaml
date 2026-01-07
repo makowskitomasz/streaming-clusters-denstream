@@ -17,4 +17,4 @@ repos:
         name: "pre-push: lint + tests"
         entry: scripts/pre_push_checks.sh
         language: system
-        stages: [push]
+        stages: [pre-push]
