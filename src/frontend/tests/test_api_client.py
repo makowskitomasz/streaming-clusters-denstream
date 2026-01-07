@@ -73,8 +73,8 @@ def test_get_latest_metrics_parsing():
                         "silhouette_score": 0.4,
                         "number_of_clusters": 3,
                         "noise_ratio": 0.1,
-                    }
-                }
+                    },
+                },
             },
         )
 
@@ -96,7 +96,7 @@ def test_get_recent_logs_parsing():
                 "logs": [
                     {"timestamp": "t1", "message": "m1", "latency_ms": 12.3},
                     {"timestamp": "t2", "message": "m2", "latency_ms": 10.0},
-                ]
+                ],
             },
         )
 

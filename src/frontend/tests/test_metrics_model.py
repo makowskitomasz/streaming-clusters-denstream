@@ -1,7 +1,7 @@
 from frontend.api_client import MetricsLatestResponse
 
 
-def test_metrics_from_payload_with_missing_fields():
+def test_metrics_from_payload_with_missing_fields() -> None:
     payload = {"latest": {"denstream": {"noise_ratio": 0.2}}}
     metrics = MetricsLatestResponse.from_payload(payload)
 

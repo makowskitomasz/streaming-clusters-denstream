@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from loguru import logger
@@ -12,7 +11,14 @@ from clustering_api.src.adapters.base_clusterer import BaseClusterer
 from clustering_api.src.adapters.denstream_clusterer import DenStreamClusterer
 from clustering_api.src.config import config
 from clustering_api.src.models.data_models import Cluster
-from clustering_api.src.services.metrics_service import MetricsService, metrics_service
+from clustering_api.src.services.metrics_service import (
+    MetricsRecord,
+    MetricsService,
+    metrics_service,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 
 class DenStreamService:
@@ -26,7 +32,7 @@ class DenStreamService:
         clusterer_factory: Callable[..., BaseClusterer] | None = None,
         metrics: MetricsService | None = None,
         **config,
-    ):
+    ) -> None:
         self._config = {**self.DEFAULT_CONFIG, **config}
         self._factory = clusterer_factory or (lambda **cfg: DenStreamClusterer(**cfg))
         self.clusterer = clusterer or self._factory(**self._config)
@@ -74,7 +80,7 @@ class DenStreamService:
             "decayed_clusters": list(self._decayed_clusters),
         }
 
-    def configure(self, **config) -> dict[str, float]:
+    def configure(self, **config: dict) -> dict[str, float]:
         updated = False
         for key, value in config.items():
             if value is not None and key in self._config:
@@ -86,10 +92,10 @@ class DenStreamService:
             self._decayed_clusters = []
         return dict(self._config)
 
-    def get_config(self) -> dict[str, float]:
+    def get_config(self) -> dict[str, any]:
         return dict(self._config)
 
-    def _evaluate_metrics(self, batch: list[Any]):
+    def _evaluate_metrics(self, batch: list[Any]) -> MetricsRecord:
         features = self._batch_to_features(batch)
         labels = self._assign_labels(features)
         batch_id = self._extract_batch_id(batch)
@@ -110,9 +116,8 @@ class DenStreamService:
             elif isinstance(item, (list, tuple)) and len(item) == 2:
                 features.append([float(item[0]), float(item[1])])
             else:
-                raise TypeError(
-                    f"Unsupported data type for DenStreamService: {type(item)}"
-                )
+                msg = f"Unsupported data type for DenStreamService: {type(item)}"
+                raise TypeError(msg)
         return np.asarray(features)
 
     def _assign_labels(self, features: np.ndarray) -> np.ndarray:
@@ -123,7 +128,7 @@ class DenStreamService:
             return np.full((features.shape[0],), -1, dtype=int)
         centroids = np.array([cluster.centroid for cluster in self._active_clusters])
         distances = np.linalg.norm(
-            features[:, None, :] - centroids[None, :, :], axis=2
+            features[:, None, :] - centroids[None, :, :], axis=2,
         )
         nearest = np.argmin(distances, axis=1)
         return nearest.astype(int)
@@ -132,7 +137,7 @@ class DenStreamService:
         batch_ids = []
         for item in batch:
             if hasattr(item, "batch_id"):
-                batch_ids.append(getattr(item, "batch_id"))
+                batch_ids.append(item.batch_id)
         unique_ids = {value for value in batch_ids if value is not None}
         if len(unique_ids) == 1:
             return next(iter(unique_ids))
@@ -164,7 +169,7 @@ class DenStreamService:
             return None
         return float(
             sum(cluster.density for cluster in self._active_clusters)
-            / len(self._active_clusters)
+            / len(self._active_clusters),
         )
 
 

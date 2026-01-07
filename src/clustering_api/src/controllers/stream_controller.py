@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body
 
 from clustering_api.src.services.stream_service import stream_service
@@ -6,17 +8,17 @@ router = APIRouter(prefix="/v1/stream", tags=["Stream"])
 
 
 @router.get("/generate", summary="Generate synthetic data batch (in-memory)")
-def generate_batch():
+def generate_batch() -> dict[str, object]:
     data = stream_service.generate_batch()
     return {
         "batch_id": stream_service.batch_id,
         "points_generated": len(data),
         "points": data,
     }
-    
+
 
 @router.get("/generate-cluster-points", summary="Generate synthetic data as cluster points")
-def generate_cluster_points():
+def generate_cluster_points() -> dict[str, object]:
     data = stream_service.generate_batch_cluster_points()
     return {
         "batch_id": stream_service.batch_id,
@@ -26,7 +28,7 @@ def generate_cluster_points():
 
 
 @router.get("/generate/save", summary="Generate and save synthetic data batch")
-def generate_and_save():
+def generate_and_save() -> dict[str, str]:
     saved_path = stream_service.save_batch()
     return {
         "message": f"Batch {stream_service.batch_id} saved successfully.",
@@ -35,7 +37,7 @@ def generate_and_save():
 
 
 @router.get("/generate-cluster-points/save", summary="Generate and save synthetic data batch with cluster points")
-def generate_and_save_cluster_points():
+def generate_and_save_cluster_points() -> dict[str, str]:
     saved_path = stream_service.save_batch_cluster_points()
     return {
         "message": f"Cluster points batch {stream_service.batch_id} saved successfully.",
@@ -44,17 +46,17 @@ def generate_and_save_cluster_points():
 
 
 @router.get("/state", summary="Get current stream generator state")
-def get_stream_state():
+def get_stream_state() -> dict:
     return stream_service.get_state()
 
 
 @router.post("/configure", summary="Configure stream generator parameters")
 def configure_stream(
-    n_clusters: int = Body(None),
-    points_per_cluster: int = Body(None),
-    noise_ratio: float = Body(None),
-    drift: float = Body(None),
-):
+    n_clusters: Annotated[int | None, Body()] = None,
+    points_per_cluster: Annotated[int | None, Body()] = None,
+    noise_ratio: Annotated[float | None, Body()] = None,
+    drift: Annotated[float | None, Body()] = None,
+) -> dict[str, dict | str]:
     """Dynamically configure generator parameters."""
     stream_service.configure(
         n_clusters=n_clusters,

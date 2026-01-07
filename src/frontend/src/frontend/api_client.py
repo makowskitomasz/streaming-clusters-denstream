@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from http import HTTPStatus
 
 import httpx
 
@@ -72,7 +73,7 @@ class MetricsLatestResponse:
     raw: dict[str, object]
 
     @classmethod
-    def from_payload(cls, payload: dict[str, object]) -> "MetricsLatestResponse":
+    def from_payload(cls, payload: dict[str, object]) -> MetricsLatestResponse:
         latest = payload.get("latest")
         model_payload: dict[str, object] = {}
         model_name = None
@@ -128,7 +129,7 @@ class LogRecord:
     raw: dict[str, object]
 
     @classmethod
-    def from_payload(cls, payload: object) -> "LogRecord":
+    def from_payload(cls, payload: object) -> LogRecord:
         if not isinstance(payload, dict):
             return cls(
                 timestamp=None,
@@ -197,7 +198,7 @@ class ApiClient:
         try:
             return self._request("POST", "/v1/stream/start", json=params.to_payload())
         except BackendError as exc:
-            if exc.status_code == 404:
+            if exc.status_code == HTTPStatus.NOT_FOUND:
                 return {}
             raise
 
@@ -235,19 +236,18 @@ class ApiClient:
         return True
 
     def _request(
-        self, method: str, path: str, json: dict[str, float | int] | None = None
+        self, method: str, path: str, json: dict[str, float | int] | None = None,
     ) -> dict[str, object]:
         try:
             response = self._client.request(method, path, json=json)
         except httpx.HTTPError as exc:
             raise BackendError(str(exc)) from exc
-        if response.status_code == 404:
-            raise BackendError(f"Endpoint not found: {path}", response.status_code)
+        if response.status_code == HTTPStatus.NOT_FOUND:
+            msg = f"Endpoint not found: {path}"
+            raise BackendError(msg, response.status_code)
         if response.is_error:
-            raise BackendError(
-                f"Backend error {response.status_code}: {response.text}",
-                response.status_code,
-            )
+            msg = f"Error response from backend: {response.status_code}"
+            raise BackendError(msg, response.status_code)
         try:
             payload = response.json()
         except ValueError:
@@ -282,7 +282,7 @@ class ApiClient:
                         y=y,
                         cluster_id=parsed_id,
                         noise=noise,
-                    )
+                    ),
                 )
         batch_id = payload.get("batch_id")
         return NextBatchResponse(
@@ -292,7 +292,7 @@ class ApiClient:
         )
 
     def _parse_cluster_state(
-        self, payload: dict[str, object]
+        self, payload: dict[str, object],
     ) -> ClusterStateResponse:
         centroids: dict[int, tuple[float, float]] = {}
         raw_active = payload.get("active_clusters", [])

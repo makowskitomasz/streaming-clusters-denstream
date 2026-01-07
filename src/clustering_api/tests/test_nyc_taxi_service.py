@@ -34,7 +34,7 @@ def test_load_dataframe(tmp_path):
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=2)
 
-    df = service._load_df()
+    df = service.load_df()
     assert len(df) == 4
     assert "pickup_longitude" in df.columns
     assert "pickup_latitude" in df.columns

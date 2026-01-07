@@ -103,7 +103,7 @@ class DriftTracker:
             direction = self._normalize_direction(displacement, distance)
             speed = distance / dt if dt > 0 else 0.0
             ema_distance, ema_direction = self._update_ema(
-                cluster_id, distance, direction
+                cluster_id, distance, direction,
             )
             age = self._ages.get(cluster_id, 0) + 1
             self._ages[cluster_id] = age
@@ -188,7 +188,8 @@ class DriftTracker:
     ) -> list[int]:
         """Return cluster IDs exceeding the supplied drift thresholds."""
         if distance_threshold is None and speed_threshold is None:
-            raise ValueError("Provide at least one drift threshold")
+            msg = "Provide at least one drift threshold"
+            raise ValueError(msg)
         high_drift: list[int] = []
         for cluster_id in self._prev_centroids:
             age = self._ages.get(cluster_id, 0)
@@ -207,15 +208,17 @@ class DriftTracker:
         return sorted(set(high_drift))
 
     def _sanitize_centroids(
-        self, centroids: dict[int, np.ndarray]
+        self, centroids: dict[int, np.ndarray],
     ) -> dict[int, np.ndarray]:
         sanitized: dict[int, np.ndarray] = {}
         for cluster_id, centroid in centroids.items():
             array = np.asarray(centroid, dtype=float).copy()
             if array.ndim != 1:
-                raise ValueError("Centroids must be 1D arrays")
+                msg = f"Centroid for cluster {cluster_id} must be 1D array"
+                raise ValueError(msg)
             if not np.isfinite(array).all():
-                raise ValueError(f"Centroid for cluster {cluster_id} contains NaN/inf")
+                msg = f"Centroid for cluster {cluster_id} contains NaN/inf"
+                raise ValueError(msg)
             sanitized[int(cluster_id)] = array
         return sanitized
 
@@ -224,7 +227,8 @@ class DriftTracker:
             self._mode = mode
             return
         if self._mode != mode:
-            raise ValueError("Cannot mix timestamp-based and step-based updates")
+            msg = "Cannot mix timestamp-based and step-based updates"
+            raise ValueError(msg)
 
     def _compute_dt(self, now: float) -> float:
         if self._last_timestamp is None:
@@ -232,19 +236,20 @@ class DriftTracker:
             return 1.0
         dt = now - self._last_timestamp
         if dt <= 0:
-            raise ValueError("timestamp must be increasing between updates")
+            msg = "timestamp must be increasing between updates"
+            raise ValueError(msg)
         self._last_timestamp = now
         return dt
 
     def _normalize_direction(
-        self, displacement: np.ndarray, distance: float
+        self, displacement: np.ndarray, distance: float,
     ) -> np.ndarray | None:
         if distance == 0.0:
             return None
         return displacement / distance
 
     def _update_ema(
-        self, cluster_id: int, distance: float, direction: np.ndarray | None
+        self, cluster_id: int, distance: float, direction: np.ndarray | None,
     ) -> tuple[float | None, np.ndarray | None]:
         if self._ema_alpha is None:
             return None, None
@@ -270,4 +275,5 @@ class DriftTracker:
         if alpha is None:
             return
         if alpha <= 0 or alpha > 1:
-            raise ValueError("ema_alpha must be in the range (0, 1]")
+            msg = f"ema_alpha must be in the range (0, 1], got {alpha}"
+            raise ValueError(msg)

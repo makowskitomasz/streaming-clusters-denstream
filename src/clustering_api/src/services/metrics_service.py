@@ -26,7 +26,8 @@ class MetricsService:
 
     def __init__(self, history_size: int = 100) -> None:
         if history_size <= 0:
-            raise ValueError("history_size must be greater than 0")
+            msg = f"history_size must be greater than 0, got {history_size}"
+            raise ValueError(msg)
         self._history_size = history_size
         self._history: dict[str, list[MetricsRecord]] = {}
 
@@ -40,16 +41,20 @@ class MetricsService:
     ) -> MetricsRecord:
         """Compute metrics for a batch and store the result."""
         if not model_name:
-            raise ValueError("model_name must be a non-empty string")
+            msg = "model_name must be a non-empty string"
+            raise ValueError(msg)
         data = np.asarray(features)
         label_array = np.asarray(labels)
         if data.ndim != 2:
-            raise ValueError("features must be a 2D array-like structure")
+            msg = f"features must be a 2D array-like structure, got {data.ndim}D"
+            raise ValueError(msg)
         if label_array.ndim != 1:
-            raise ValueError("labels must be a 1D array-like structure")
+            msg = f"labels must be a 1D array-like structure, got {label_array.ndim}D"
+            raise ValueError(msg)
         n_samples = int(data.shape[0])
         if n_samples != int(label_array.size):
-            raise ValueError("features and labels must have matching lengths")
+            msg = f"features and labels must have matching lengths, got {n_samples} and {label_array.size}"
+            raise ValueError(msg)
 
         number_of_clusters = self._count_clusters(label_array)
         noise_ratio = self._compute_noise_ratio(label_array, n_samples)
@@ -69,7 +74,7 @@ class MetricsService:
         return record
 
     def get_latest(
-        self, model_name: str | None = None
+        self, model_name: str | None = None,
     ) -> MetricsRecord | None | dict[str, MetricsRecord]:
         """Return the latest metrics record for a model or for all models."""
         if model_name is None:
@@ -102,7 +107,7 @@ class MetricsService:
         return noise_count / n_samples
 
     def _safe_silhouette_score(
-        self, data: np.ndarray, labels: np.ndarray, number_of_clusters: int
+        self, data: np.ndarray, labels: np.ndarray, number_of_clusters: int,
     ) -> float | None:
         if data.shape[0] < 2 or number_of_clusters < 2:
             return None

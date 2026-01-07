@@ -2,7 +2,7 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]
 from frontend.plotting import build_cluster_scatter
 
 
-def test_build_cluster_scatter_creates_figure():
+def test_build_cluster_scatter_creates_figure() -> None:
     points = [(0.0, 0.0), (1.0, 1.0)]
     labels = [0, 0]
     fig = build_cluster_scatter(points, labels, {0: (0.5, 0.5)})
@@ -10,16 +10,18 @@ def test_build_cluster_scatter_creates_figure():
     assert len(fig.data) >= 2
 
 
-def test_noise_trace_has_low_opacity():
+def test_noise_trace_has_low_opacity() -> None:
+    maximum_opacity = 0.4
+
     points = [(0.0, 0.0), (1.0, 1.0)]
     labels = [-1, 0]
     fig = build_cluster_scatter(points, labels)
     noise_traces = [trace for trace in fig.data if trace.name == "Noise"]
     assert noise_traces
-    assert noise_traces[0].marker.opacity <= 0.4
+    assert noise_traces[0].marker.opacity <= maximum_opacity
 
 
-def test_centroid_trace_has_labels():
+def test_centroid_trace_has_labels() -> None:
     points = [(0.0, 0.0), (1.0, 1.0)]
     labels = [0, 0]
     fig = build_cluster_scatter(points, labels, {0: (0.5, 0.5)})
@@ -28,7 +30,7 @@ def test_centroid_trace_has_labels():
     assert centroid_traces[0].text[0] == "C0"
 
 
-def test_color_mapping_is_stable():
+def test_color_mapping_is_stable() -> None:
     points = [(0.0, 0.0), (1.0, 1.0)]
     labels = [2, 2]
     fig_one = build_cluster_scatter(points, labels)
