@@ -41,8 +41,9 @@ src/
       models/
       utils/
     tests/
-frontend/
-  streamlit_app/
+  frontend/
+    src/
+    tests/
 ```
 - `src/clustering_api/src/controllers/`: FastAPI routers orchestrating endpoints, validation, and lifecycle hooks.
 - `src/clustering_api/src/services/`: Business logic for stream generation, DenStream, HDBSCAN, metrics, and orchestration.
@@ -67,9 +68,8 @@ frontend/
 4. Stop everything with `Ctrl+C` or `docker compose down`.
 
 ## Frontend Runbook (Streamlit)
-1. Change to the frontend directory: `cd frontend/streamlit_app`.
-2. Launch the UI: `streamlit run app.py`.
-3. Use the sidebar to pick data sources, configure drift/noise parameters, start or reset streams, and track cluster evolution and metrics in real time.
+1. Launch the UI: `streamlit run src/frontend/src/app.py`.
+2. Use the sidebar to pick data sources, configure drift/noise parameters, start or reset streams, and track cluster evolution and metrics in real time.
 
 ## CI/CD
 GitHub Actions runs tests and linting on every push. The workflow provisions a Conda environment, installs dependencies, executes `ruff`, and runs `pytest`. No production deployment is performed; the pipeline ensures local teaching experiments remain consistent.
@@ -79,6 +79,12 @@ pytest validates the core services, API layers, and shared models that drive the
 
 ## Linting & Formatting
 `ruff` enforces PEP8-compatible style as part of local development and CI, while `Black` provides deterministic formatting. Static typing is checked with `mypy`. Run `make lint`, `make format`, and `make typecheck` (or invoke `ruff`, `black`, and `mypy` directly) before pushing changes.
+
+## Git Hooks
+Use `make hooks` once to install local hooks:
+- pre-commit runs lint/format only
+- pre-push runs lint + tests
+- emergency bypass: `git push --no-verify`
 
 ## Sample Data Flow
 `Stream → Controller → DenStream → Cluster Model → Metrics → API / Streamlit`
