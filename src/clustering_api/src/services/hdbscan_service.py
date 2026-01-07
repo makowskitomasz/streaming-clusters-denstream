@@ -77,7 +77,9 @@ class HdbscanService:
         self._metrics = metrics or metrics_service
 
     def cluster_batch(
-        self, features: np.ndarray, batch_id: str | None = None,
+        self,
+        features: np.ndarray,
+        batch_id: str | None = None,
     ) -> HdbscanBatchResult:
         """Cluster a batch of features with HDBSCAN.
 
@@ -143,9 +145,7 @@ class HdbscanService:
         return tuple(self._history)
 
     def _build_clusterer(self) -> HDBSCAN:
-        params = {
-            key: value for key, value in self._params.items() if value is not None
-        }
+        params = {key: value for key, value in self._params.items() if value is not None}
         return HDBSCAN(**params)
 
     def _fit_predict(self, clusterer: HDBSCAN, data: np.ndarray) -> np.ndarray:
@@ -168,7 +168,8 @@ class HdbscanService:
         )
 
     def _summarize_cluster_sizes(
-        self, labels: np.ndarray,
+        self,
+        labels: np.ndarray,
     ) -> dict[str, float] | None:
         cluster_labels = labels[labels != -1]
         if cluster_labels.size == 0:
@@ -202,10 +203,7 @@ class HdbscanService:
             msg = "metric must be a non-empty string"
             raise ValueError(msg)
         if cluster_selection_method not in {"eom", "leaf"}:
-            msg = (
-                "Invalid cluster_selection_method: "
-                f"{cluster_selection_method}, must be 'eom' or 'leaf'"
-            )
+            msg = "Invalid cluster_selection_method: " f"{cluster_selection_method}, must be 'eom' or 'leaf'"
             raise ValueError(msg)
         if history_size <= 0:
             msg = f"history_size must be greater than 0, got {history_size}"

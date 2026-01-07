@@ -100,7 +100,9 @@ class DenStreamClusterer(BaseClusterer):
                 raise TypeError(msg)
 
     def _micro_clusters_to_cluster(
-        self, clusters_dict: dict[Any, Any], status: str,
+        self,
+        clusters_dict: dict[Any, Any],
+        status: str,
     ) -> list[Cluster]:
         timestamp = getattr(self._model, "timestamp", 0)
         clusters: list[Cluster] = []
@@ -119,7 +121,9 @@ class DenStreamClusterer(BaseClusterer):
         return clusters
 
     def _micro_cluster_centroid(
-        self, micro_cluster: Any, timestamp: float,
+        self,
+        micro_cluster: Any,
+        timestamp: float,
     ) -> tuple[float, float]:
         center = micro_cluster.calc_center(timestamp)
         return (
@@ -137,9 +141,11 @@ class DenStreamClusterer(BaseClusterer):
 
     def get_clusters(self) -> dict[str, list[Cluster]]:
         active = self._micro_clusters_to_cluster(
-            self._model.p_micro_clusters, status="active",
+            self._model.p_micro_clusters,
+            status="active",
         )
         decayed = self._micro_clusters_to_cluster(
-            self._model.o_micro_clusters, status="decayed",
+            self._model.o_micro_clusters,
+            status="decayed",
         )
         return {"active": active, "decayed": decayed}

@@ -216,7 +216,10 @@ class ApiClient:
         return True
 
     def _request(
-        self, method: str, path: str, json: dict[str, float | int] | None = None,
+        self,
+        method: str,
+        path: str,
+        json: dict[str, float | int] | None = None,
     ) -> dict[str, object]:
         try:
             response = self._client.request(method, path, json=json)
@@ -238,11 +241,7 @@ class ApiClient:
 
     def _parse_next_batch(self, payload: dict[str, object]) -> NextBatchResponse:
         raw_points = payload.get("points", [])
-        points = [
-            _parse_stream_point(item)
-            for item in raw_points
-            if isinstance(item, dict)
-        ]
+        points = [_parse_stream_point(item) for item in raw_points if isinstance(item, dict)]
         points = [point for point in points if point is not None]
         batch_id = payload.get("batch_id")
         return NextBatchResponse(
@@ -252,7 +251,8 @@ class ApiClient:
         )
 
     def _parse_cluster_state(
-        self, payload: dict[str, object],
+        self,
+        payload: dict[str, object],
     ) -> ClusterStateResponse:
         centroids: dict[int, tuple[float, float]] = {}
         raw_active = payload.get("active_clusters", [])

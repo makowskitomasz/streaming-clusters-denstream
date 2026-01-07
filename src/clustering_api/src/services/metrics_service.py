@@ -54,10 +54,7 @@ class MetricsService:
             raise ValueError(msg)
         n_samples = int(data.shape[0])
         if n_samples != int(label_array.size):
-            msg = (
-                "features and labels must have matching lengths, "
-                f"got {n_samples} and {label_array.size}"
-            )
+            msg = "features and labels must have matching lengths, " f"got {n_samples} and {label_array.size}"
             raise ValueError(msg)
 
         number_of_clusters = self._count_clusters(label_array)
@@ -78,13 +75,12 @@ class MetricsService:
         return record
 
     def get_latest(
-        self, model_name: str | None = None,
+        self,
+        model_name: str | None = None,
     ) -> MetricsRecord | None | dict[str, MetricsRecord]:
         """Return the latest metrics record for a model or for all models."""
         if model_name is None:
-            return {
-                name: records[-1] for name, records in self._history.items() if records
-            }
+            return {name: records[-1] for name, records in self._history.items() if records}
         records = self._history.get(model_name)
         return records[-1] if records else None
 
@@ -110,7 +106,10 @@ class MetricsService:
         return noise_count / n_samples
 
     def _safe_silhouette_score(
-        self, data: np.ndarray, labels: np.ndarray, number_of_clusters: int,
+        self,
+        data: np.ndarray,
+        labels: np.ndarray,
+        number_of_clusters: int,
     ) -> float | None:
         if data.shape[0] < 2 or number_of_clusters < 2:
             return None

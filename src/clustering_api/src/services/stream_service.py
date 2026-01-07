@@ -105,10 +105,7 @@ class StreamService:
     ) -> list[ClusterPoint]:
         """Generate a deterministic batch from supplied centroids and noise ratio."""
         if centroids.ndim != 2 or centroids.shape[1] != 2:
-            msg = (
-                "centroids must be a 2D array with shape (k, 2), "
-                f"got {centroids.shape}"
-            )
+            msg = "centroids must be a 2D array with shape (k, 2), " f"got {centroids.shape}"
             raise StreamConfigError(msg)
         if points_per_cluster <= 0:
             msg = f"points_per_cluster must be greater than 0, got {points_per_cluster}"
@@ -129,7 +126,9 @@ class StreamService:
         )
         cluster_points = centroids[:, None, :] + cluster_points
         noise_points = rng.uniform(
-            noise_bounds[0], noise_bounds[1], size=(noise_count, 2),
+            noise_bounds[0],
+            noise_bounds[1],
+            size=(noise_count, 2),
         )
         records: list[ClusterPoint] = []
 
@@ -228,9 +227,7 @@ class StreamService:
     def _update_centroids(self) -> None:
         """Apply random drift to all centroids."""
         rng = np.random.default_rng()
-        drift_vector = rng.uniform(
-            -self._drift, self._drift, size=self._centroids.shape
-        )
+        drift_vector = rng.uniform(-self._drift, self._drift, size=self._centroids.shape)
         self._centroids = self._centroids + drift_vector
 
     def _initialize_centroids(self, n_clusters: int) -> np.ndarray:
@@ -238,7 +235,9 @@ class StreamService:
         return rng.uniform(-5, 5, size=(n_clusters, 2))
 
     def _populate_cluster_records(
-        self, records: list[DataPoint | None], timestamp: float,
+        self,
+        records: list[DataPoint | None],
+        timestamp: float,
     ) -> int:
         cluster_points = self._generate_cluster_points()
         cluster_ids = np.repeat(np.arange(self._n_clusters), self._points_per_cluster)
@@ -255,9 +254,7 @@ class StreamService:
     ) -> None:
         noise_points = self._generate_noise_points()
         for offset, point in enumerate(noise_points):
-            records[start_index + offset] = self._build_record(
-                point, timestamp, -1, True
-            )
+            records[start_index + offset] = self._build_record(point, timestamp, -1, True)
 
     def _generate_cluster_points(self) -> np.ndarray:
         rng = np.random.default_rng()
@@ -273,7 +270,11 @@ class StreamService:
         return rng.uniform(-8, 8, size=(self._noise_points_count(), 2))
 
     def _build_record(
-        self, point: np.ndarray, timestamp: float, cluster_id: int, noise: bool,
+        self,
+        point: np.ndarray,
+        timestamp: float,
+        cluster_id: int,
+        noise: bool,
     ) -> DataPoint:
         return DataPoint(
             x=float(point[0]),

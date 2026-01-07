@@ -24,7 +24,8 @@ def append_history(
 
 
 def compute_centroids_from_points(
-    points: np.ndarray, labels: np.ndarray,
+    points: np.ndarray,
+    labels: np.ndarray,
 ) -> dict[int, tuple[float, float]]:
     """Compute centroids from points/labels, excluding noise (-1)."""
     centroids: dict[int, tuple[float, float]] = {}

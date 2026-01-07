@@ -26,6 +26,7 @@ from utils import measure_latency
 try:
     from streamlit_autorefresh import st_autorefresh  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
+
     def st_autorefresh(interval: int, key: str) -> None:
         last_key = f"{key}-last"
         now = time()
@@ -184,16 +185,13 @@ def _generate_mock_batch(
         labels_array = np.array([], dtype=int)
 
     shuffle: np.ndarray
-    shuffle = (
-        rng.permutation(points_array.shape[0])
-        if points_array.size
-        else np.array([])
-    )
+    shuffle = rng.permutation(points_array.shape[0]) if points_array.size else np.array([])
     return points_array[shuffle], labels_array[shuffle], centroids
 
 
 def _compute_metrics(
-    points: np.ndarray, labels: np.ndarray,
+    points: np.ndarray,
+    labels: np.ndarray,
 ) -> dict[str, float | int | None]:
     active_labels = labels[labels != -1]
     active_clusters = len(set(active_labels.tolist()))
@@ -219,10 +217,7 @@ def _points_from_batch(
     if not points:
         return None
     coords = np.asarray([[point.x, point.y] for point in points], dtype=float)
-    labels = [
-        -1 if point.cluster_id is None or point.noise else point.cluster_id
-        for point in points
-    ]
+    labels = [-1 if point.cluster_id is None or point.noise else point.cluster_id for point in points]
     return coords, np.asarray(labels, dtype=int)
 
 
@@ -236,11 +231,13 @@ def _apply_metrics(metrics: MetricsLatestResponse) -> None:
     st.session_state.metrics_history.append(metrics)
 
 
-def _build_plot_data() -> tuple[
-    list[tuple[float, float]],
-    list[int],
-    dict[int, tuple[float, float]],
-]:
+def _build_plot_data() -> (
+    tuple[
+        list[tuple[float, float]],
+        list[int],
+        dict[int, tuple[float, float]],
+    ]
+):
     points = st.session_state.points
     labels = st.session_state.labels
     if points.size == 0 or labels.size == 0:
@@ -290,9 +287,7 @@ def _refresh_logs(client: ApiClient, limit: int) -> None:
             logs = client.get_recent_logs(limit=limit)
             st.session_state.recent_logs = logs
             st.session_state.logs_last_error = None
-            st.session_state.logs_last_refresh_ts = datetime.now(
-                tz=timezone.utc
-            ).isoformat(timespec="seconds")
+            st.session_state.logs_last_refresh_ts = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
         except BackendError as exc:
             st.session_state.logs_last_error = str(exc)
     _append_log_entry(
@@ -348,9 +343,7 @@ def _next_batch(batch_size: int, drift_rate: float) -> None:
     active_clusters = int(metrics["active_clusters"] or 0)
     noise_ratio = float(metrics["noise_ratio"] or 0.0)
     centroid_map = {
-        idx: (float(item[0]), float(item[1]))
-        for idx, item in enumerate(centroids.tolist())
-        if len(item) == 2
+        idx: (float(item[0]), float(item[1])) for idx, item in enumerate(centroids.tolist()) if len(item) == 2
     }
     _record_centroid_history(
         batch_id=st.session_state.batch_id,
@@ -451,8 +444,7 @@ def main() -> None:
 
     st.title("Clustering Dashboard")
     st.write(
-        "Explore mock DenStream behavior, drift, and batch-level metrics "
-        "with deterministic synthetic data.",
+        "Explore mock DenStream behavior, drift, and batch-level metrics " "with deterministic synthetic data.",
     )
 
     client = ApiClient()
@@ -465,11 +457,14 @@ def main() -> None:
         refresh_interval = params_form.slider("update_interval_seconds", 1, 10, 3)
         apply_params = params_form.form_submit_button("Apply")
         use_backend = st.checkbox(
-            "Use backend (Live mode)", value=st.session_state.use_backend,
+            "Use backend (Live mode)",
+            value=st.session_state.use_backend,
         )
         st.session_state.use_backend = use_backend
         mock_mode = st.checkbox(
-            "Mock mode", value=not use_backend, disabled=use_backend,
+            "Mock mode",
+            value=not use_backend,
+            disabled=use_backend,
         )
         max_history = st.slider("max_history_points", 50, 500, 200, step=10)
         show_last_n = st.checkbox("Show only last N steps", value=True)
@@ -630,7 +625,8 @@ def main() -> None:
         st.subheader("Logs & Timeline")
         log_limit = st.slider("log_limit", 50, 1000, 200, step=50)
         auto_refresh_logs = st.checkbox(
-            "Auto-refresh logs when running", value=True,
+            "Auto-refresh logs when running",
+            value=True,
         )
         if st.button("Refresh logs"):
             _refresh_logs(client, log_limit)
@@ -652,11 +648,7 @@ def main() -> None:
 
             rows = []
             for log in logs:
-                noise_percent = (
-                    f"{(log.noise_ratio or 0.0) * 100:.1f}%"
-                    if log.noise_ratio is not None
-                    else "—"
-                )
+                noise_percent = f"{(log.noise_ratio or 0.0) * 100:.1f}%" if log.noise_ratio is not None else "—"
                 rows.append(
                     {
                         "timestamp": log.timestamp,
@@ -671,9 +663,7 @@ def main() -> None:
                 )
             st.dataframe(pd.DataFrame(rows), width="stretch", height=260)
 
-            raw_messages = "\n".join(
-                f"{log.timestamp} | {log.message}" for log in logs if log.message
-            )
+            raw_messages = "\n".join(f"{log.timestamp} | {log.message}" for log in logs if log.message)
             st.text_area("raw_logs", raw_messages, height=180)
         else:
             st.info("No logs available.")

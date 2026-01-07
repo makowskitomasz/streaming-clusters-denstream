@@ -55,9 +55,7 @@ class LogEntry:
 @dataclass(slots=True)
 class LoggingState:
     configured: bool = False
-    recent_logs: deque[LogPayload] = field(
-        default_factory=lambda: deque(maxlen=1000)
-    )
+    recent_logs: deque[LogPayload] = field(default_factory=lambda: deque(maxlen=1000))
 
 
 _STATE = LoggingState()
@@ -146,7 +144,7 @@ def _log_sink(message: _LoguruMessage) -> None:
 
     entry = LogEntry(
         timestamp=t.isoformat(),  # type: ignore[call-arg]
-        level=lvl.name,           # type: ignore[attr-defined]
+        level=lvl.name,  # type: ignore[attr-defined]
         message=msg,
         extra=extra_map,
     )

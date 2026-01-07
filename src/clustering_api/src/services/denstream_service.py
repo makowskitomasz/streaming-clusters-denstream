@@ -126,15 +126,14 @@ class DenStreamService:
             return np.full((features.shape[0],), -1, dtype=int)
         centroids = np.array([cluster.centroid for cluster in self._active_clusters])
         distances = np.linalg.norm(
-            features[:, None, :] - centroids[None, :, :], axis=2,
+            features[:, None, :] - centroids[None, :, :],
+            axis=2,
         )
         nearest = np.argmin(distances, axis=1)
         return nearest.astype(int)
 
     def _extract_batch_id(self, batch: list[Any]) -> str | None:
-        batch_ids = [
-            item.batch_id for item in batch if hasattr(item, "batch_id")
-        ]
+        batch_ids = [item.batch_id for item in batch if hasattr(item, "batch_id")]
         unique_ids = {value for value in batch_ids if value is not None}
         if len(unique_ids) == 1:
             return next(iter(unique_ids))
@@ -165,8 +164,7 @@ class DenStreamService:
         if not self._active_clusters:
             return None
         return float(
-            sum(cluster.density for cluster in self._active_clusters)
-            / len(self._active_clusters),
+            sum(cluster.density for cluster in self._active_clusters) / len(self._active_clusters),
         )
 
 
