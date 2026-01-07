@@ -5,6 +5,7 @@ this interface so services can remain agnostic to underlying algorithms.
 """
 
 import abc
+from collections.abc import Iterable
 from typing import Any
 
 
@@ -12,11 +13,11 @@ class BaseClusterer(abc.ABC):
     """Common contract for clustering adapters."""
 
     @abc.abstractmethod
-    def fit(self, data: Any) -> None:
+    def fit(self, data: Iterable) -> None:
         """Train/initialize the clusterer on the provided historical data."""
 
     @abc.abstractmethod
-    def update(self, data: Any) -> None:
+    def update(self, data: Iterable) -> None:
         """Incrementally update the model with the next data batch."""
 
     @abc.abstractmethod

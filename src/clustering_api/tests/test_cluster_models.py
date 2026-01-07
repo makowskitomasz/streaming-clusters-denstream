@@ -7,23 +7,23 @@ from clustering_api.src.models.data_models import (
 )
 
 
-def test_cluster_point_weight_validation():
+def test_cluster_point_weight_validation() -> None:
     with pytest.raises(ValueError):
         ClusterPoint(x=0.0, y=0.0, weight=0)
 
 
-def test_cluster_size_vs_points_validation():
+def test_cluster_size_vs_points_validation() -> None:
     point = ClusterPoint(x=1.0, y=2.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Cluster size cannot be smaller than number of points"):
         Cluster(id="c1", centroid=(0.0, 0.0), size=0, density=0.5, points=[point])
 
 
-def test_cluster_status_flag():
+def test_cluster_status_flag() -> None:
     cluster = Cluster(id="c2", centroid=(1.0, 1.0), size=5, density=0.8, status="decayed")
     assert cluster.status == "decayed"
 
 
-def test_cluster_summary_from_clusters():
+def test_cluster_summary_from_clusters() -> None:
     c1 = Cluster(id="1", centroid=(0.0, 0.0), size=10, density=0.4)
     c2 = Cluster(id="2", centroid=(1.0, 1.0), size=5, density=0.6)
 

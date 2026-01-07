@@ -1,16 +1,17 @@
 import numpy as np
 
+from clustering_api.src.models.data_models import Cluster
 from clustering_api.src.services.denstream_service import DenStreamService
 from clustering_api.src.services.metrics_service import MetricsService
 from clustering_api.src.services.stream_service import StreamService
 from clustering_api.src.utils.drift_tracker import DriftTracker
 
 
-def _active_clusters(service: DenStreamService):
+def _active_clusters(service: DenStreamService) -> list[Cluster]:
     return service.get_current_clusters()["active_clusters"]
 
 
-def _centroid_map(clusters) -> dict[int, np.ndarray]:
+def _centroid_map(clusters: list[Cluster]) -> dict[int, np.ndarray]:
     mapping: dict[int, np.ndarray] = {}
     fallback_ids = sorted(cluster.id for cluster in clusters)
     fallback_map = {cid: idx for idx, cid in enumerate(fallback_ids)}

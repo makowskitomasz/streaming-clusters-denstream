@@ -53,7 +53,7 @@ def _init_state() -> None:
         st.session_state.rng = np.random.default_rng(st.session_state.seed)
     if "base_centroids" not in st.session_state:
         st.session_state.base_centroids = np.array(
-            [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]]
+            [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]],
         )
     if "points" not in st.session_state:
         st.session_state.points = np.empty((0, 2))
@@ -95,7 +95,7 @@ def _reset_state() -> None:
     st.session_state.seed = 7
     st.session_state.rng = np.random.default_rng(st.session_state.seed)
     st.session_state.base_centroids = np.array(
-        [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]]
+        [[-4.0, 0.0], [0.0, 4.0], [4.0, 0.0]],
     )
     st.session_state.points = np.empty((0, 2))
     st.session_state.labels = np.array([], dtype=int)
@@ -162,7 +162,7 @@ def _generate_mock_batch(
 
 
 def _compute_metrics(
-    points: np.ndarray, labels: np.ndarray
+    points: np.ndarray, labels: np.ndarray,
 ) -> dict[str, float | int | None]:
     active_labels = labels[labels != -1]
     active_clusters = len(set(active_labels.tolist()))
@@ -247,7 +247,7 @@ def _record_centroid_history(
         return
     snapshot = CentroidSnapshot(
         batch_id=batch_id,
-        timestamp=datetime.utcnow().isoformat(timespec="seconds"),
+        timestamp=datetime.now(tz=datetime.timezone.utc).isoformat(timespec="seconds"),
         centroids=centroid_map,
     )
     st.session_state.centroid_history = append_history(
@@ -266,8 +266,8 @@ def _refresh_logs(client: ApiClient, limit: int) -> None:
         logs = client.get_recent_logs(limit=limit)
         st.session_state.recent_logs = logs
         st.session_state.logs_last_error = None
-        st.session_state.logs_last_refresh_ts = datetime.utcnow().isoformat(
-            timespec="seconds"
+        st.session_state.logs_last_refresh_ts = datetime.now(tz=datetime.timezone.utc).isoformat(
+            timespec="seconds",
         )
     except BackendError as exc:
         st.session_state.logs_last_error = str(exc)
@@ -284,7 +284,7 @@ def _append_log_entry(
     status: str = "success",
 ) -> None:
     entry = {
-        "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+        "timestamp": datetime.now(tz=datetime.timezone.utc).isoformat(timespec="seconds"),
         "action": action,
         "status": status,
         "batch_id": batch_id,
@@ -418,7 +418,7 @@ def main() -> None:
     st.title("Clustering Dashboard")
     st.write(
         "Explore mock DenStream behavior, drift, and batch-level metrics "
-        "with deterministic synthetic data."
+        "with deterministic synthetic data.",
     )
 
     client = ApiClient()
@@ -431,11 +431,11 @@ def main() -> None:
         refresh_interval = params_form.slider("update_interval_seconds", 1, 10, 3)
         apply_params = params_form.form_submit_button("Apply")
         use_backend = st.checkbox(
-            "Use backend (Live mode)", value=st.session_state.use_backend
+            "Use backend (Live mode)", value=st.session_state.use_backend,
         )
         st.session_state.use_backend = use_backend
         mock_mode = st.checkbox(
-            "Mock mode", value=not use_backend, disabled=use_backend
+            "Mock mode", value=not use_backend, disabled=use_backend,
         )
         max_history = st.slider("max_history_points", 50, 500, 200, step=10)
         show_last_n = st.checkbox("Show only last N steps", value=True)
@@ -584,7 +584,7 @@ def main() -> None:
         st.subheader("Logs & Timeline")
         log_limit = st.slider("log_limit", 50, 1000, 200, step=50)
         auto_refresh_logs = st.checkbox(
-            "Auto-refresh logs when running", value=True
+            "Auto-refresh logs when running", value=True,
         )
         if st.button("Refresh logs"):
             _refresh_logs(client, log_limit)
@@ -621,7 +621,7 @@ def main() -> None:
                         "silhouette_score": log.silhouette_score,
                         "drift_magnitude": log.drift_magnitude,
                         "message": log.message,
-                    }
+                    },
                 )
             st.dataframe(pd.DataFrame(rows), width="stretch", height=260)
 

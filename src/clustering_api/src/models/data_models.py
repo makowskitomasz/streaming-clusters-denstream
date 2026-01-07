@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -9,10 +9,10 @@ class DataPoint(BaseModel):
     x: float
     y: float
     timestamp: float
-    cluster_id: Optional[int] = None
+    cluster_id: int | None = None
     source: str = "synthetic"
-    batch_id: Optional[int] = None
-    noise: Optional[bool] = None
+    batch_id: int | None = None
+    noise: bool | None = None
 
 
 class ClusterPoint(BaseModel):
@@ -23,8 +23,8 @@ class ClusterPoint(BaseModel):
     cluster_id: str | None = None
     timestamp: float | None = None
     weight: float = 1.0
-    batch_id: Optional[int] = None
-    noise: Optional[bool] = None
+    batch_id: int | None = None
+    noise: bool | None = None
 
     @field_validator("weight")
     @classmethod
@@ -47,7 +47,8 @@ class Cluster(BaseModel):
     @field_validator("centroid")
     def _centroid_length(cls, value: tuple[float, float]) -> tuple[float, float]:
         if len(value) != 2:
-            raise ValueError("Centroid must be a 2D coordinate")
+            msg = "Centroid must be a 2D coordinate"
+            raise ValueError(msg)
         return value
 
     @field_validator("points")
@@ -56,7 +57,8 @@ class Cluster(BaseModel):
         if expected_size is None:
             return points
         if points and expected_size < len(points):
-            raise ValueError("Cluster size cannot be smaller than number of points")
+            msg = "Cluster size cannot be smaller than number of points"
+            raise ValueError(msg)
         return points
 
 
@@ -100,6 +102,6 @@ def map_datapoint_to_clusterpoint(dp: DataPoint) -> ClusterPoint:
     )
 
 
-def map_batch_to_clusterpoints(batch: List[DataPoint]) -> List[ClusterPoint]:
+def map_batch_to_clusterpoints(batch: list[DataPoint]) -> list[ClusterPoint]:
     """Convert a list of DataPoints into ClusterPoints."""
     return [map_datapoint_to_clusterpoint(dp) for dp in batch]

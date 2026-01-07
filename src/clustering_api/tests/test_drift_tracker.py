@@ -97,7 +97,7 @@ def test_invalid_timestamp_order_raises():
     tracker.update({0: np.array([0.0, 0.0])}, timestamp=2.0)
 
     # Act / Assert
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="timestamp must be increasing between updates"):
         tracker.update({0: np.array([1.0, 0.0])}, timestamp=1.0)
 
 
@@ -107,5 +107,5 @@ def test_nan_centroid_raises():
     centroids = {0: np.array([np.nan, 0.0])}
 
     # Act / Assert
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Centroid for cluster 0 contains NaN/inf"):
         tracker.update(centroids)

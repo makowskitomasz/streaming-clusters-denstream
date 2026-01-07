@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 from plotly import colors as plotly_colors
 
-from frontend.api_client import LogRecord
-
+if TYPE_CHECKING:
+    from frontend.api_client import LogRecord
 
 def build_cluster_scatter(
     points: list[tuple[float, float]],
@@ -14,7 +16,8 @@ def build_cluster_scatter(
 ) -> go.Figure:
     """Build a Plotly scatter for clusters with optional centroids."""
     if len(points) != len(labels):
-        raise ValueError("points and labels must have matching lengths")
+        msg = f"points and labels must have matching lengths, got {len(points)} and {len(labels)}"
+        raise ValueError(msg)
     fig = go.Figure()
     if not points:
         fig.update_layout(
@@ -37,10 +40,10 @@ def build_cluster_scatter(
         title="Current clusters",
         xaxis_title="x",
         yaxis_title="y",
-        legend=dict(orientation="v"),
+        legend={"orientation": "v"},
         uirevision="cluster-scatter",
         height=600,
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
     return fig
 
@@ -63,7 +66,7 @@ def build_centroid_trajectories(
         return fig
 
     snapshots = history[-only_last_n:] if only_last_n else history
-    cluster_ids = sorted({cid for snap in snapshots for cid in snap.keys()})
+    cluster_ids = sorted({cid for snap in snapshots for cid in snap})
     palette = plotly_colors.qualitative.Set2
 
     for cluster_id in cluster_ids:
@@ -84,9 +87,9 @@ def build_centroid_trajectories(
                 y=ys,
                 mode="lines+markers",
                 name=f"Cluster {cluster_id}",
-                line=dict(color=color),
-                marker=dict(color=color, size=6),
-            )
+                line={"color": color},
+                marker={"color": color, "size": 6},
+            ),
         )
         if show_labels:
             last_point = next(
@@ -106,19 +109,19 @@ def build_centroid_trajectories(
                         name=f"C{cluster_id}",
                         text=[f"C{cluster_id}"],
                         textposition="top center",
-                        marker=dict(color=color, size=10, symbol="circle-open"),
+                        marker={"color": color, "size": 10, "symbol": "circle-open"},
                         showlegend=False,
-                    )
+                    ),
                 )
 
     fig.update_layout(
         title="Centroid trajectories",
         xaxis_title="x",
         yaxis_title="y",
-        legend=dict(orientation="v"),
+        legend={"orientation": "v"},
         uirevision="centroid-trajectories",
         height=500,
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
     return fig
 
@@ -144,20 +147,20 @@ def build_logs_timeline(logs: list[LogRecord], series: str) -> go.Figure:
             y=ys,
             mode="lines+markers",
             name=series,
-        )
+        ),
     )
     fig.update_layout(
         title="Performance timeline",
         xaxis_title="timestamp",
         yaxis_title=series,
         height=260,
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
     return fig
 
 
 def _add_cluster_traces(
-    fig: go.Figure, points: np.ndarray, labels: np.ndarray
+    fig: go.Figure, points: np.ndarray, labels: np.ndarray,
 ) -> None:
     palette = plotly_colors.qualitative.Set2
     unique_labels = sorted({int(label) for label in labels.tolist()})
@@ -170,8 +173,8 @@ def _add_cluster_traces(
                     y=points[mask, 1],
                     mode="markers",
                     name="Noise",
-                    marker=dict(color="gray", size=5, opacity=0.3),
-                )
+                    marker={"color": "gray", "size": 5, "opacity": 0.3},
+                ),
             )
         else:
             color = palette[label % len(palette)]
@@ -181,13 +184,13 @@ def _add_cluster_traces(
                     y=points[mask, 1],
                     mode="markers",
                     name=f"Cluster {label}",
-                    marker=dict(color=color, size=6),
-                )
+                    marker={"color": color, "size": 6},
+                ),
             )
 
 
 def _add_centroid_traces(
-    fig: go.Figure, centroids: dict[int, tuple[float, float]]
+    fig: go.Figure, centroids: dict[int, tuple[float, float]],
 ) -> None:
     for cluster_id, centroid in centroids.items():
         fig.add_trace(
@@ -198,13 +201,13 @@ def _add_centroid_traces(
                 name=f"C{cluster_id}",
                 text=[f"C{cluster_id}"],
                 textposition="top center",
-                marker=dict(color="black", size=14, symbol="x"),
-            )
+                marker={"color": "black", "size": 14, "symbol": "x"},
+            ),
         )
 
 
 def _compute_centroids(
-    points: np.ndarray, labels: np.ndarray
+    points: np.ndarray, labels: np.ndarray,
 ) -> dict[int, tuple[float, float]]:
     centroids: dict[int, tuple[float, float]] = {}
     for label in sorted({int(label) for label in labels.tolist()}):

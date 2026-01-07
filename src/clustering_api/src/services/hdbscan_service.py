@@ -75,7 +75,7 @@ class HdbscanService:
         self._metrics = metrics or metrics_service
 
     def cluster_batch(
-        self, features: np.ndarray, batch_id: str | None = None
+        self, features: np.ndarray, batch_id: str | None = None,
     ) -> HdbscanBatchResult:
         """Cluster a batch of features with HDBSCAN.
 
@@ -88,7 +88,8 @@ class HdbscanService:
         """
         data = np.asarray(features)
         if data.ndim != 2:
-            raise ValueError("features must be a 2D array-like structure")
+            msg = f"features must be a 2D array-like structure, got {data.ndim}D"
+            raise ValueError(msg)
         n_samples = int(data.shape[0])
         self._append_history(batch_id=batch_id, n_samples=n_samples)
         if n_samples == 0:
@@ -161,14 +162,14 @@ class HdbscanService:
                 batch_id=batch_id,
                 timestamp=time.time(),
                 n_samples=n_samples,
-            )
+            ),
         )
         if len(self._history) > self._history_size:
             excess = len(self._history) - self._history_size
             self._history = self._history[excess:]
 
     def _summarize_cluster_sizes(
-        self, labels: np.ndarray
+        self, labels: np.ndarray,
     ) -> dict[str, float] | None:
         cluster_labels = labels[labels != -1]
         if cluster_labels.size == 0:
@@ -193,20 +194,23 @@ class HdbscanService:
         random_state: int | None,
     ) -> None:
         if min_cluster_size <= 0:
-            raise ValueError("min_cluster_size must be greater than 0")
+            msg = f"min_cluster_size must be greater than 0, got {min_cluster_size}"
+            raise ValueError(msg)
         if min_samples is not None and min_samples <= 0:
-            raise ValueError("min_samples must be greater than 0 when provided")
+            msg = f"min_samples must be greater than 0 when provided, got {min_samples}"
+            raise ValueError(msg)
         if not metric:
-            raise ValueError("metric must be a non-empty string")
+            msg = "metric must be a non-empty string"
+            raise ValueError(msg)
         if cluster_selection_method not in {"eom", "leaf"}:
-            raise ValueError(
-                "cluster_selection_method must be 'eom' or 'leaf'"
-            )
+            msg = f"Invalid cluster_selection_method: {cluster_selection_method}, must be 'eom' or 'leaf'"
+            raise ValueError(msg)
         if history_size <= 0:
-            raise ValueError("history_size must be greater than 0")
+            msg = f"history_size must be greater than 0, got {history_size}"
+            raise ValueError(msg)
         if random_state is not None and random_state < 0:
-            raise ValueError("random_state must be non-negative when provided")
-
+            msg = f"random_state must be non-negative when provided, got {random_state}"
+            raise ValueError(msg)
     def _log_batch_stats(
         self,
         *,

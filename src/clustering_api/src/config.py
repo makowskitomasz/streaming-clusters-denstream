@@ -18,7 +18,7 @@ class ClusteringConfig:
         n_samples_init: int
         stream_speed: int
 
-    def __init__(self, version, app, denstream):
+    def __init__(self, version: str, app: dict, denstream: dict) -> None:
         self.version = version
         self.app = ClusteringConfig.App(**app)
         self.denstream = ClusteringConfig.DenStream(**denstream)

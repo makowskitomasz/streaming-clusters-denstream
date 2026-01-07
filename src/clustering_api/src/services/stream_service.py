@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ class StreamService:
         noise_ratio: float = 0.05,
         drift: float = 0.05,
         output_dir: str = "./data",
-    ):
+    ) -> None:
         self._n_clusters = n_clusters
         self._points_per_cluster = points_per_cluster
         self._noise_ratio = noise_ratio
@@ -55,31 +55,31 @@ class StreamService:
     def drift(self) -> float:
         return self._drift
 
-    def generate_batch(self) -> List[DataPoint]:
+    def generate_batch(self) -> list[DataPoint]:
         """Generate one batch consisting of clustered and noise points."""
         self._batch_id += 1
         self._update_centroids()
         timestamp = time.time()
         total_points = self._total_points_per_batch()
-        records: List[Optional[DataPoint]] = [None] * total_points
+        records: list[DataPoint | None] = [None] * total_points
 
         next_index = self._populate_cluster_records(records, timestamp)
         self._populate_noise_records(records, timestamp, next_index)
 
-        return [cast(DataPoint, record) for record in records]
-    
-    def generate_batch_cluster_points(self) -> List[ClusterPoint]:
+        return [cast("DataPoint", record) for record in records]
+
+    def generate_batch_cluster_points(self) -> list[ClusterPoint]:
         """Generate one batch consisting of clustered and noise points as ClusterPoint."""
         self._batch_id += 1
         self._update_centroids()
         timestamp = time.time()
         total_points = self._total_points_per_batch()
-        records: List[Optional[DataPoint]] = [None] * total_points
+        records: list[DataPoint | None] = [None] * total_points
 
         next_index = self._populate_cluster_records(records, timestamp)
         self._populate_noise_records(records, timestamp, next_index)
-        
-        data_points = [cast(DataPoint, record) for record in records]
+
+        data_points = [cast("DataPoint", record) for record in records]
         return map_batch_to_clusterpoints(data_points)
 
     def generate_custom_batch(
@@ -91,16 +91,20 @@ class StreamService:
         rng: np.random.Generator,
         batch_id: int | None = None,
         noise_bounds: tuple[float, float] = (-8.0, 8.0),
-    ) -> List[ClusterPoint]:
+    ) -> list[ClusterPoint]:
         """Generate a deterministic batch from supplied centroids and noise ratio."""
         if centroids.ndim != 2 or centroids.shape[1] != 2:
-            raise ValueError("centroids must be a 2D array with shape (k, 2)")
+            msg = f"centroids must be a 2D array with shape (k, 2), got {centroids.shape}"
+            raise ValueError(msg)
         if points_per_cluster <= 0:
-            raise ValueError("points_per_cluster must be greater than 0")
+            msg = f"points_per_cluster must be greater than 0, got {points_per_cluster}"
+            raise ValueError(msg)
         if noise_ratio < 0:
-            raise ValueError("noise_ratio must be non-negative")
+            msg = f"noise_ratio must be non-negative, got {noise_ratio}"
+            raise ValueError(msg)
         if noise_bounds[0] >= noise_bounds[1]:
-            raise ValueError("noise_bounds must be an increasing range")
+            msg = f"noise_bounds must be an increasing range, got {noise_bounds}"
+            raise ValueError(msg)
         timestamp = time.time()
         total_clusters = centroids.shape[0]
         noise_count = int(points_per_cluster * total_clusters * noise_ratio)
@@ -111,35 +115,38 @@ class StreamService:
         )
         cluster_points = centroids[:, None, :] + cluster_points
         noise_points = rng.uniform(
-            noise_bounds[0], noise_bounds[1], size=(noise_count, 2)
+            noise_bounds[0], noise_bounds[1], size=(noise_count, 2),
         )
-        records: List[ClusterPoint] = []
-        for cluster_id, points in enumerate(cluster_points):
-            for point in points:
-                records.append(
-                    ClusterPoint(
-                        x=float(point[0]),
-                        y=float(point[1]),
-                        cluster_id=str(cluster_id),
-                        timestamp=timestamp,
-                        batch_id=batch_id,
-                        noise=False,
-                    )
-                )
-        for point in noise_points:
-            records.append(
-                ClusterPoint(
-                    x=float(point[0]),
-                    y=float(point[1]),
-                    cluster_id=None,
-                    timestamp=timestamp,
-                    batch_id=batch_id,
-                    noise=True,
-                )
+        records: list[ClusterPoint] = []
+
+        records.extend(
+            ClusterPoint(
+                x=float(point[0]),
+                y=float(point[1]),
+                cluster_id=str(cluster_id),
+                timestamp=timestamp,
+                batch_id=batch_id,
+                noise=False,
             )
+            for cluster_id, points in enumerate(cluster_points)
+            for point in points
+        )
+
+        records.extend(
+            ClusterPoint(
+                x=float(point[0]),
+                y=float(point[1]),
+                cluster_id=None,
+                timestamp=timestamp,
+                batch_id=batch_id,
+                noise=True,
+            )
+            for point in noise_points
+        )
+
         return records
 
-    def save_batch(self, filename: Optional[str] = None) -> str:
+    def save_batch(self, filename: str | None = None) -> str:
         """Generate a batch and persist it as a JSON file."""
         batch = self.generate_batch()
         df = pd.DataFrame([point.model_dump() for point in batch])
@@ -147,8 +154,8 @@ class StreamService:
         path = self._output_dir / output_name
         df.to_json(path, orient="records", indent=4)
         return str(path)
-    
-    def save_batch_cluster_points(self, filename: Optional[str] = None) -> str:
+
+    def save_batch_cluster_points(self, filename: str | None = None) -> str:
         """Generate a batch and persist it as a JSON file with ClusterPoint format."""
         batch = self.generate_batch_cluster_points()
         df = pd.DataFrame([point.model_dump() for point in batch])
@@ -163,7 +170,7 @@ class StreamService:
         points_per_cluster: int | None = None,
         noise_ratio: float | None = None,
         drift: float | None = None,
-    ):
+    ) -> None:
         """Update configuration dynamically."""
         if n_clusters is not None and n_clusters != self._n_clusters:
             self._n_clusters = n_clusters
@@ -175,13 +182,13 @@ class StreamService:
         if drift is not None:
             self._drift = drift
 
-    def reset_stream(self):
+    def reset_stream(self) -> None:
         """Reset stream to initial state (batch counter and centroids)."""
         self._batch_id = 0
         self._centroids = self._initialize_centroids(self._n_clusters)
         self._paused = False
 
-    def pause_stream(self):
+    def pause_stream(self) -> None:
         """Pause the stream (state-only flag)."""
         self._paused = True
 
@@ -205,16 +212,16 @@ class StreamService:
 
     def _update_centroids(self) -> None:
         """Apply random drift to all centroids."""
-        drift_vector = np.random.uniform(
-            -self._drift, self._drift, size=self._centroids.shape
+        drift_vector = np.random.Generator().uniform(
+            -self._drift, self._drift, size=self._centroids.shape,
         )
         self._centroids = self._centroids + drift_vector
 
     def _initialize_centroids(self, n_clusters: int) -> np.ndarray:
-        return np.random.uniform(-5, 5, size=(n_clusters, 2))
+        return np.random.Generator().uniform(-5, 5, size=(n_clusters, 2))
 
     def _populate_cluster_records(
-        self, records: List[Optional[DataPoint]], timestamp: float
+        self, records: list[DataPoint | None], timestamp: float,
     ) -> int:
         cluster_points = self._generate_cluster_points()
         cluster_ids = np.repeat(np.arange(self._n_clusters), self._points_per_cluster)
@@ -225,7 +232,7 @@ class StreamService:
 
     def _populate_noise_records(
         self,
-        records: List[Optional[DataPoint]],
+        records: list[DataPoint | None],
         timestamp: float,
         start_index: int,
     ) -> None:
@@ -234,7 +241,7 @@ class StreamService:
             records[start_index + offset] = self._build_record(point, timestamp, -1, True)
 
     def _generate_cluster_points(self) -> np.ndarray:
-        noise_component = np.random.normal(
+        noise_component = np.random.Generator.normal(
             loc=0.0,
             scale=0.5,
             size=(self._n_clusters, self._points_per_cluster, 2),
@@ -242,10 +249,10 @@ class StreamService:
         return self._centroids[:, None, :] + noise_component
 
     def _generate_noise_points(self) -> np.ndarray:
-        return np.random.uniform(-8, 8, size=(self._noise_points_count(), 2))
+        return np.random.Generator().uniform(-8, 8, size=(self._noise_points_count(), 2))
 
     def _build_record(
-        self, point: np.ndarray, timestamp: float, cluster_id: int, noise: bool
+        self, point: np.ndarray, timestamp: float, cluster_id: int, noise: bool,
     ) -> DataPoint:
         return DataPoint(
             x=float(point[0]),
