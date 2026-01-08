@@ -208,3 +208,6 @@ __marimo__/
 
 # Everything in data directory
 data/*
+
+# DS_store
+.DS_Store
