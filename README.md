@@ -3,13 +3,19 @@
 ## Platform Overview
 This project delivers a full-stack platform for detecting evolving clusters in streaming data. The backend exposes a FastAPI service that ingests, clusters, and analyzes real-time streams, while a Streamlit dashboard visualizes the evolution of clusters, metrics, and configuration states. The architecture is oriented to experimentation and teaching, balancing online DenStream processing with offline HDBSCAN baselines.
 
+---
+
 ## Project Goal
 The system enables analysis of continuously arriving data and provides a controlled environment to compare DenStream (online) with HDBSCAN (offline snapshot baseline). Researchers can study concept drift, noise, stability, and clustering quality over time by replaying synthetic or real-world streams and observing how both algorithms respond to shifting distributions.
+
+---
 
 ## Technology Stack
 - **Python**: Version 3.12 across backend and frontend logic.
 - **FastAPI**: REST backend that exposes ingestion, configuration, and monitoring endpoints with async processing.
 - **Streamlit**: Python UI for real-time dashboards, controls, and visual analytics.
+- **uv**: Dependency management and virtual environments via `pyproject.toml` and `uv.lock`.
+- **Docker**: Containerized backend and frontend execution.
 - **UMAP / scikit-learn / HDBSCAN**: Dimensionality reduction, feature preprocessing, and offline clustering baseline.
 - **River (DenStream)**: Online micro-cluster maintenance for streaming data.
 - **matplotlib / Plotly**: Visual layers for cluster trajectories and metrics.
@@ -17,7 +23,8 @@ The system enables analysis of continuously arriving data and provides a control
 - **mypy**: Static type checker verifying type annotations across backend modules.
 - **ruff**: Static analysis and linting aligned with PEP8.
 - **GitHub Actions CI**: Automation for linting and tests on every push.
-- **environment.yml**: Conda specification for reproducible environments.
+
+---
 
 ## Core Functionality
 - **Synthetic stream generation** with tunable cluster counts, drift intensity, noise ratio, and batch size for reproducible experiments.
@@ -29,6 +36,8 @@ The system enables analysis of continuously arriving data and provides a control
 - **Streamlit dashboard** that renders embeddings, cluster timelines, and metric traces while exposing configuration controls.
 - **REST API** covering stream lifecycle, clustering endpoints, configuration changes, and diagnostic metrics.
 - **Reset and reconfiguration** capabilities that clear stateful services and apply new stream or clustering settings without restarts.
+
+---
 
 ## Directory Layout
 ```
@@ -51,34 +60,83 @@ src/
 - `src/clustering_api/src/models/`: Pydantic schemas shared between API and frontend.
 - `src/clustering_api/src/utils/`: Helpers for configuration, logging, sampling, and serialization.
 - `src/clustering_api/tests/`: pytest suite for controllers, services, and models.
-- `frontend/streamlit_app/`: Streamlit UI modules, component definitions, and visualization logic.
+- `src/frontend/src/`: Streamlit UI modules, API client, and visualization logic.
 
-## Backend Runbook
-### Local (Conda/uv)
-1. **Install dependencies**: `conda env create -f environment.yml`.
-2. **Activate environment**: `conda activate streaming-clusters` (replace with the name defined in `environment.yml`).
-3. **Install Python deps**: `uv sync` (uses `pyproject.toml` + `uv.lock`).
-4. **Start FastAPI**: `uv run uvicorn clustering_api.src.main:app --host 0.0.0.0 --port 8000` or run `python src/clustering_api/src/main.py`.
-5. **Inspect Swagger UI**: open `http://localhost:8000/docs` to explore REST endpoints and schemas.
 
-### Containerized
-1. **Build & run**: `docker compose up --build` (uses the provided Dockerfile pinned to `pyproject.toml`/`uv.lock`).
-2. Wait for `Uvicorn running on http://0.0.0.0:8000` in the logs.
-3. Open `http://localhost:8000/docs` for Swagger or hit the API directly.
-4. Stop everything with `Ctrl+C` or `docker compose down`.
+---
 
-## Frontend Runbook (Streamlit)
-1. Launch the UI: `streamlit run src/frontend/src/app.py`.
-2. Use the sidebar to pick data sources, configure drift/noise parameters, start or reset streams, and track cluster evolution and metrics in real time.
+## Backend Runbook (Containerized)
+
+1. **Build and start the backend service**
+
+   ```bash
+   make up-backend
+   ```
+
+2. **Wait for the service to become available**
+   You should see a log line similar to:
+
+   ```
+   Uvicorn running on http://0.0.0.0:8000
+   ```
+
+3. **Access the API**
+
+   * Swagger UI: `http://localhost:8000/docs`
+   * API base URL: `http://localhost:8000`
+
+4. **View backend logs**
+
+   ```bash
+   make logs
+   ```
+
+5. **Stop the backend**
+
+   ```bash
+   docker compose down
+   ```
+
+---
+
+## Frontend Runbook (Containerized)
+
+1. Build and start the frontend service
+
+  ```bash
+  make up-frontend
+  ```
+2. Access the dashboard
+ 
+    Open http://localhost:8501 in your browser.
+  
+3. Stop the frontend
+
+  ```bash
+  docker compose down
+  ```
+
+---
 
 ## CI/CD
-GitHub Actions runs tests and linting on every push. The workflow provisions a Conda environment, installs dependencies, executes `ruff`, and runs `pytest`. No production deployment is performed; the pipeline ensures local teaching experiments remain consistent.
+GitHub Actions runs linting and tests on every push using `uv` for dependency
+resolution. The pipeline executes `ruff`, `mypy`, and `pytest` to ensure
+code quality and correctness.
 
-## Unit Testing
-pytest validates the core services, API layers, and shared models that drive the streaming workflow. Run `make test` or `pytest` from the repository root after activating the environment.
+---
 
-## Linting & Formatting
-`ruff` enforces PEP8-compatible style as part of local development and CI, while `Black` provides deterministic formatting. Static typing is checked with `mypy`. Run `make lint`, `make format`, and `make typecheck` (or invoke `ruff`, `black`, and `mypy` directly) before pushing changes.
+## Linting, Formatting & Tests
+
+Common development commands:
+- `make test` – run pytest
+- `make lint` – run ruff and mypy
+- `make format` – apply black and ruff formatting
+- `make check` – run lint + tests
+- `make coverage` – run tests with coverage enforcement
+
+All commands rely on `uv` and `pyproject.toml` as the single source of truth.
+
+---
 
 ## Git Hooks
 Use `make hooks` once to install local hooks:
@@ -86,8 +144,16 @@ Use `make hooks` once to install local hooks:
 - pre-push runs lint + tests
 - emergency bypass: `git push --no-verify`
 
+---
+
 ## Sample Data Flow
 `Stream → Controller → DenStream → Cluster Model → Metrics → API / Streamlit`
 
+---
+
 ## System Requirements
-Python 3.12, Conda, and sufficient memory to hold buffered batches (>=8 GB RAM suggested for NYC Taxi experiments).
+- Python 3.12
+- uv
+- Docker & Docker Compose (optional, for containerized execution)
+- ≥ 8 GB RAM recommended for large streaming experiments (e.g. NYC Taxi)
+
