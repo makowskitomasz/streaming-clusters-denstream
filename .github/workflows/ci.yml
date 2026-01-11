@@ -23,7 +23,7 @@ jobs:
         run: pip install uv
 
       - name: Sync dependencies (with dev group)
-        run: uv sync --group dev
+        run: make dev-sync
 
       - name: Lint
         run: make lint
@@ -31,8 +31,8 @@ jobs:
       - name: Run Tests (Coverage)
         run: make coverage
 
-      - name: Build Docker image
-        run: docker build -t streaming-clusters-denstream:ci -f docker/api/Dockerfile .
+      - name: Build Backend Docker image
+        run: DOCKER_TAG=ci make build-backend
 
       - name: Build Frontend Docker image
-        run: docker build -t streaming-clusters-denstream-frontend:ci -f docker/frontend/Dockerfile .
+        run: DOCKER_TAG=ci make build-frontend

@@ -1,6 +1,7 @@
 APP_NAME=streaming-clusters-denstream
-DOCKER_IMAGE_BACKEND=$(APP_NAME)-backend:latest
-DOCKER_IMAGE_FRONTEND=$(APP_NAME)-frontend:latest
+DOCKER_TAG ?= latest
+DOCKER_IMAGE_BACKEND=$(APP_NAME)-backend:$(DOCKER_TAG)
+DOCKER_IMAGE_FRONTEND=$(APP_NAME)-frontend:$(DOCKER_TAG)
 
 .PHONY: help build-backend build-frontend up-backend up-frontend run-backend run-frontend test lint lint-fix format check hooks dev-sync coverage shell logs
 
