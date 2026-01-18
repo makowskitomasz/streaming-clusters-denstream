@@ -3,7 +3,7 @@ DOCKER_TAG ?= latest
 DOCKER_IMAGE_BACKEND=$(APP_NAME)-backend:$(DOCKER_TAG)
 DOCKER_IMAGE_FRONTEND=$(APP_NAME)-frontend:$(DOCKER_TAG)
 
-.PHONY: help build-backend build-frontend up-backend up-frontend run-backend run-frontend test lint lint-fix format check hooks dev-sync coverage shell logs
+.PHONY: help build-backend build-frontend up-backend up-frontend run-backend run-frontend run-backend-local run-frontend-local test lint lint-fix format check hooks dev-sync coverage shell logs
 
 help:
 	@echo "Available commands:"
@@ -13,6 +13,8 @@ help:
 	@echo "  make up-frontend - Run frontend via docker compose"
 	@echo "  make run-backend - Run backend container manually"
 	@echo "  make run-frontend - Run frontend container manually"
+	@echo "  make run-backend-local - Run backend locally (uv + uvicorn)"
+	@echo "  make run-frontend-local - Run frontend locally (uv + streamlit)"
 	@echo "  make test       - Run pytest via uv"
 	@echo "  make lint       - Run ruff and mypy"
 	@echo "  make format     - Format code with black and ruff"
@@ -40,6 +42,12 @@ run-backend:
 
 run-frontend:
 	docker run --rm -p 8501:8501 $(DOCKER_IMAGE_FRONTEND)
+
+run-backend-local:
+	uv run uvicorn clustering_api.src.main:app --reload --host 0.0.0.0 --port 8000
+
+run-frontend-local:
+	uv run streamlit run src/frontend/src/app.py
 
 test:
 	uv run pytest -q

@@ -16,7 +16,6 @@ LOG_FORMAT: str = (
 )
 
 
-# If you want stricter than `object`, you can replace object with a JSON-like union.
 LogExtra = Mapping[str, object]
 
 
@@ -85,7 +84,6 @@ def init_logging(
     if _STATE.configured and not reset:
         return Path(log_dir) / filename
 
-    logger.remove()
     configure_logger(level=level)
 
     log_path = Path(log_dir)
@@ -134,7 +132,6 @@ def _log_sink(message: _LoguruMessage) -> None:
     lvl = record["level"]
     msg = record["message"]
 
-    # These runtime asserts both document expectations and help type narrowing.
     assert hasattr(t, "isoformat")
     assert hasattr(lvl, "name")
     assert isinstance(msg, str)

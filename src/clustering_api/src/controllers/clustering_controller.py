@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from clustering_api.src.models.data_models import Cluster, ClusterPoint  # noqa: TC001
 from clustering_api.src.services.denstream_service import denstream_service
 
 router = APIRouter(prefix="/v1/clustering", tags=["Clustering"])
-
-if TYPE_CHECKING:
-    from clustering_api.src.models.data_models import Cluster, ClusterPoint
 
 
 class ClusterBatchPayload(BaseModel):
@@ -31,6 +29,13 @@ class DenStreamConfigPayload(BaseModel):
     stream_speed: int | None = None
 
 
+class ClusterStateResponse(BaseModel):
+    """Response payload for current DenStream clusters."""
+
+    active_clusters: list[Cluster] = Field(default_factory=list)
+    decayed_clusters: list[Cluster] = Field(default_factory=list)
+
+
 @dataclass(frozen=True, slots=True)
 class ConfigResponse:
     message: str
@@ -40,16 +45,24 @@ class ConfigResponse:
         return {"message": self.message, "config": self.config}
 
 
-@router.post("/denstream/update", summary="Update DenStream with a new batch")
-def update_denstream(payload: ClusterBatchPayload) -> dict[str, list[Cluster]]:
+@router.post(
+    "/denstream/update",
+    summary="Update DenStream with a new batch",
+    response_model=ClusterStateResponse,
+)
+def update_denstream(payload: ClusterBatchPayload) -> ClusterStateResponse:
     """Update DenStream with a new batch."""
-    return denstream_service.update_clusters(payload.points)
+    return ClusterStateResponse(**denstream_service.update_clusters(payload.points))
 
 
-@router.get("/denstream/clusters", summary="Fetch current DenStream clusters")
-def get_denstream_clusters() -> dict[str, list[Cluster]]:
+@router.get(
+    "/denstream/clusters",
+    summary="Fetch current DenStream clusters",
+    response_model=ClusterStateResponse,
+)
+def get_denstream_clusters() -> ClusterStateResponse:
     """Return the latest DenStream clusters."""
-    return denstream_service.get_current_clusters()
+    return ClusterStateResponse(**denstream_service.get_current_clusters())
 
 
 @router.post("/denstream/configure", summary="Update DenStream hyperparameters")

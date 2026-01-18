@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Query
 
 from clustering_api.src.services.stream_service import stream_service
 
@@ -68,6 +68,44 @@ def generate_cluster_points() -> dict[str, object]:
     return response.to_dict()
 
 
+@router.get(
+    "/point",
+    summary="Generate a single cluster point",
+)
+def generate_point(
+    count: Annotated[int | None, Query()] = None,
+) -> dict[str, object]:
+    """Generate one or more cluster points."""
+    data = stream_service.generate_point_cluster_points(count=count or 1)
+    response = BatchResponse(
+        batch_id=stream_service.batch_id,
+        points_generated=len(data),
+        points=data,
+    )
+    return response.to_dict()
+
+
+@router.post("/next", summary="Generate the next cluster batch")
+def next_batch(
+    points_per_cluster: Annotated[int | None, Body()] = None,
+    drift: Annotated[float | None, Body()] = None,
+) -> dict[str, object]:
+    """Generate the next batch, optionally overriding stream parameters."""
+    stream_service.configure(
+        points_per_cluster=points_per_cluster,
+        drift=drift,
+    )
+    return generate_cluster_points()
+
+
+@router.post("/start", summary="Start or resume the stream")
+def start_stream() -> dict[str, object]:
+    """Start/resume stream generation (state-only flag)."""
+    stream_service.resume_stream()
+    response = StateResponse(state=stream_service.get_state())
+    return {"message": "Stream started successfully", "state": response.state}
+
+
 @router.get("/generate/save", summary="Generate and save synthetic data batch")
 def generate_and_save() -> dict[str, str]:
     """Generate and persist a synthetic batch to disk."""
@@ -106,6 +144,10 @@ def configure_stream(
     points_per_cluster: Annotated[int | None, Body()] = None,
     noise_ratio: Annotated[float | None, Body()] = None,
     drift: Annotated[float | None, Body()] = None,
+    dynamic_enabled: Annotated[bool | None, Body()] = None,
+    dynamic_min_clusters: Annotated[int | None, Body()] = None,
+    dynamic_max_clusters: Annotated[int | None, Body()] = None,
+    dynamic_interval: Annotated[int | None, Body()] = None,
 ) -> dict[str, dict | str]:
     """Dynamically configure generator parameters."""
     stream_service.configure(
@@ -113,6 +155,10 @@ def configure_stream(
         points_per_cluster=points_per_cluster,
         noise_ratio=noise_ratio,
         drift=drift,
+        dynamic_enabled=dynamic_enabled,
+        dynamic_min_clusters=dynamic_min_clusters,
+        dynamic_max_clusters=dynamic_max_clusters,
+        dynamic_interval=dynamic_interval,
     )
     response = StateResponse(state=stream_service.get_state())
     return {

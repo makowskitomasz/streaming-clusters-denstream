@@ -211,3 +211,6 @@ data/*
 
 # DS_store
 .DS_Store
+
+# Logs
+logs/
