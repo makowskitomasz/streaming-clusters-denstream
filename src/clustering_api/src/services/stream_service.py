@@ -15,6 +15,7 @@ from clustering_api.src.models.data_models import (
 )
 
 DIMENSIONS = 2
+RANDOM_ADD_THRESHOLD = 0.5
 
 
 class StreamConfigError(ValueError):
@@ -32,6 +33,10 @@ class StreamState:
     batch_id: int
     centroids: list[list[float]]
     paused: bool
+    dynamic_enabled: bool
+    dynamic_min_clusters: int
+    dynamic_max_clusters: int
+    dynamic_interval: int
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -42,6 +47,10 @@ class StreamState:
             "batch_id": self.batch_id,
             "centroids": self.centroids,
             "paused": self.paused,
+            "dynamic_enabled": self.dynamic_enabled,
+            "dynamic_min_clusters": self.dynamic_min_clusters,
+            "dynamic_max_clusters": self.dynamic_max_clusters,
+            "dynamic_interval": self.dynamic_interval,
         }
 
 
@@ -55,6 +64,11 @@ class StreamService:
         noise_ratio: float = 0.05,
         drift: float = 0.05,
         output_dir: str = "./data",
+        *,
+        dynamic_enabled: bool = False,
+        dynamic_min_clusters: int = 2,
+        dynamic_max_clusters: int = 6,
+        dynamic_interval: int = 10,
     ) -> None:
         self._n_clusters = n_clusters
         self._points_per_cluster = points_per_cluster
@@ -65,6 +79,11 @@ class StreamService:
         self._centroids = self._initialize_centroids(self._n_clusters)
         self._batch_id = 0
         self._paused = False
+        self._dynamic_enabled = dynamic_enabled
+        self._dynamic_min_clusters = dynamic_min_clusters
+        self._dynamic_max_clusters = dynamic_max_clusters
+        self._dynamic_interval = dynamic_interval
+        self._dynamic_counter = 0
 
     @property
     def batch_id(self) -> int:
@@ -94,6 +113,47 @@ class StreamService:
         """Generate one batch of clustered/noise points as ClusterPoint."""
         data_points = self._generate_records()
         return map_batch_to_clusterpoints(data_points)
+
+    def generate_point_cluster_points(self, count: int = 1) -> list[ClusterPoint]:
+        """Generate cluster points for point-by-point streaming."""
+        if count <= 0:
+            msg = "count must be positive"
+            raise StreamConfigError(msg)
+        self._batch_id += 1
+        self._dynamic_counter += 1
+        self._maybe_adjust_clusters()
+        self._update_centroids()
+        timestamp = time.time()
+        rng = np.random.default_rng()
+        records: list[ClusterPoint] = []
+        for _ in range(count):
+            if rng.random() < self._noise_ratio:
+                point = rng.uniform(-8, 8, size=(DIMENSIONS,))
+                records.append(
+                    ClusterPoint(
+                        x=float(point[0]),
+                        y=float(point[1]),
+                        cluster_id=None,
+                        timestamp=timestamp,
+                        batch_id=self._batch_id,
+                        noise=True,
+                    ),
+                )
+                continue
+            cluster_id = int(rng.integers(0, self._n_clusters))
+            centroid = self._centroids[cluster_id]
+            point = rng.normal(loc=0.0, scale=0.5, size=(DIMENSIONS,)) + centroid
+            records.append(
+                ClusterPoint(
+                    x=float(point[0]),
+                    y=float(point[1]),
+                    cluster_id=str(cluster_id),
+                    timestamp=timestamp,
+                    batch_id=self._batch_id,
+                    noise=False,
+                ),
+            )
+        return records
 
     def generate_custom_batch(
         self,
@@ -185,8 +245,19 @@ class StreamService:
         points_per_cluster: int | None = None,
         noise_ratio: float | None = None,
         drift: float | None = None,
+        *,
+        dynamic_enabled: bool | None = None,
+        dynamic_min_clusters: int | None = None,
+        dynamic_max_clusters: int | None = None,
+        dynamic_interval: int | None = None,
     ) -> None:
         """Update configuration dynamically."""
+        if (
+            dynamic_min_clusters is not None
+            and dynamic_max_clusters is not None
+            and dynamic_min_clusters > dynamic_max_clusters
+        ):
+            dynamic_max_clusters = dynamic_min_clusters
         if n_clusters is not None and n_clusters != self._n_clusters:
             self._n_clusters = n_clusters
             self._centroids = self._initialize_centroids(n_clusters)
@@ -196,16 +267,29 @@ class StreamService:
             self._noise_ratio = noise_ratio
         if drift is not None:
             self._drift = drift
+        if dynamic_enabled is not None:
+            self._dynamic_enabled = dynamic_enabled
+        if dynamic_min_clusters is not None:
+            self._dynamic_min_clusters = dynamic_min_clusters
+        if dynamic_max_clusters is not None:
+            self._dynamic_max_clusters = dynamic_max_clusters
+        if dynamic_interval is not None and dynamic_interval > 0:
+            self._dynamic_interval = dynamic_interval
 
     def reset_stream(self) -> None:
         """Reset stream to initial state (batch counter and centroids)."""
         self._batch_id = 0
         self._centroids = self._initialize_centroids(self._n_clusters)
         self._paused = False
+        self._dynamic_counter = 0
 
     def pause_stream(self) -> None:
         """Pause the stream (state-only flag)."""
         self._paused = True
+
+    def resume_stream(self) -> None:
+        """Resume the stream (state-only flag)."""
+        self._paused = False
 
     def get_state(self) -> dict:
         """Return current configuration and state."""
@@ -217,6 +301,10 @@ class StreamService:
             batch_id=self._batch_id,
             centroids=self._centroids.tolist(),
             paused=self._paused,
+            dynamic_enabled=self._dynamic_enabled,
+            dynamic_min_clusters=self._dynamic_min_clusters,
+            dynamic_max_clusters=self._dynamic_max_clusters,
+            dynamic_interval=self._dynamic_interval,
         )
         return state.to_dict()
 
@@ -303,6 +391,8 @@ class StreamService:
 
     def _generate_records(self) -> list[DataPoint]:
         self._batch_id += 1
+        self._dynamic_counter += 1
+        self._maybe_adjust_clusters()
         self._update_centroids()
         timestamp = time.time()
         total_points = self._total_points_per_batch()
@@ -312,6 +402,28 @@ class StreamService:
         self._populate_noise_records(records, timestamp, next_index)
 
         return [cast("DataPoint", record) for record in records]
+
+    def _maybe_adjust_clusters(self) -> None:
+        if not self._dynamic_enabled:
+            return
+        if self._dynamic_interval <= 0:
+            return
+        if self._dynamic_counter % self._dynamic_interval != 0:
+            return
+        rng = np.random.default_rng()
+        if self._n_clusters >= self._dynamic_max_clusters:
+            action = "remove"
+        elif self._n_clusters <= self._dynamic_min_clusters:
+            action = "add"
+        else:
+            action = "add" if rng.random() < RANDOM_ADD_THRESHOLD else "remove"
+        if action == "add":
+            new_centroid = rng.uniform(-5, 5, size=(1, DIMENSIONS))
+            self._centroids = np.vstack((self._centroids, new_centroid))
+            self._n_clusters += 1
+        elif self._n_clusters > self._dynamic_min_clusters:
+            self._centroids = self._centroids[:-1]
+            self._n_clusters -= 1
 
 
 stream_service = StreamService()

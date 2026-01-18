@@ -25,11 +25,10 @@ class StreamParams:
     drift_rate: float
     update_interval_seconds: int
 
-    def to_payload(self) -> dict[str, float | int]:
+    def to_payload(self) -> dict[str, object]:
         return {
-            "batch_size": self.batch_size,
-            "drift_rate": self.drift_rate,
-            "update_interval_seconds": self.update_interval_seconds,
+            "points_per_cluster": self.batch_size,
+            "drift": self.drift_rate,
         }
 
 
@@ -41,6 +40,7 @@ class StreamPoint:
     y: float
     cluster_id: int | None
     noise: bool
+    timestamp: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,9 +176,9 @@ class ApiClient:
             transport=transport,
         )
 
-    def start_stream(self, params: StreamParams) -> dict[str, object]:
+    def start_stream(self, _params: StreamParams | None = None) -> dict[str, object]:
         try:
-            return self._request("POST", "/v1/stream/start", json=params.to_payload())
+            return self._request("POST", "/v1/stream/start")
         except BackendError as exc:
             if exc.status_code == HTTPStatus.NOT_FOUND:
                 return {}
@@ -187,13 +187,49 @@ class ApiClient:
     def reset_stream(self) -> dict[str, object]:
         return self._request("POST", "/v1/stream/reset")
 
+    def pause_stream(self) -> dict[str, object]:
+        return self._request("POST", "/v1/stream/pause")
+
     def next_batch(self, params: StreamParams) -> NextBatchResponse:
-        payload = params.to_payload()
-        try:
-            data = self._request("POST", "/v1/stream/next", json=payload)
-        except BackendError:
-            data = self._request("GET", "/v1/stream/generate-cluster-points")
+        data = self._request("POST", "/v1/stream/next", json=params.to_payload())
         return self._parse_next_batch(data)
+
+    def next_point(self, count: int) -> NextBatchResponse:
+        data = self._request("GET", f"/v1/stream/point?count={count}")
+        return self._parse_next_batch(data)
+
+    def configure_stream(self, payload: dict[str, object]) -> dict[str, object]:
+        return self._request("POST", "/v1/stream/configure", json=payload)
+
+    def get_stream_state(self) -> dict[str, object]:
+        return self._request("GET", "/v1/stream/state")
+
+    def configure_nyc_taxi(self, payload: dict[str, object]) -> dict[str, object]:
+        return self._request("POST", "/v1/nyc-taxi/configure", json=payload)
+
+    def reset_nyc_taxi(self) -> dict[str, object]:
+        return self._request("POST", "/v1/nyc-taxi/reset")
+
+    def next_nyc_taxi_second(self) -> NextBatchResponse:
+        data = self._request("GET", "/v1/nyc-taxi/next-second")
+        return self._parse_next_batch(data)
+
+    def next_nyc_taxi_second_cluster_points(self) -> NextBatchResponse:
+        data = self._request("GET", "/v1/nyc-taxi/next-second-cluster-points")
+        return self._parse_next_batch(data)
+
+    def get_nyc_taxi_bounds(self) -> dict[str, object]:
+        return self._request("GET", "/v1/nyc-taxi/bounds")
+
+    def update_denstream(self, points: list[dict[str, object]]) -> dict[str, object]:
+        return self._request(
+            "POST",
+            "/v1/clustering/denstream/update",
+            json={"points": points},
+        )
+
+    def configure_denstream(self, payload: dict[str, object]) -> dict[str, object]:
+        return self._request("POST", "/v1/clustering/denstream/configure", json=payload)
 
     def get_current_state(self) -> ClusterStateResponse:
         data = self._request("GET", "/v1/clustering/denstream/clusters")
@@ -221,7 +257,7 @@ class ApiClient:
         self,
         method: str,
         path: str,
-        json: dict[str, float | int] | None = None,
+        json: dict[str, object] | None = None,
     ) -> dict[str, object]:
         try:
             response = self._client.request(method, path, json=json)
@@ -281,7 +317,19 @@ def _as_float(value: object) -> float | None:
 
 
 def _as_int(value: object) -> int | None:
-    return int(value) if isinstance(value, (int, float)) else None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            try:
+                return int(float(value))
+            except ValueError:
+                return None
+    return None
 
 
 def _as_str(value: object) -> str | None:
@@ -319,4 +367,5 @@ def _parse_stream_point(item: dict[str, object]) -> StreamPoint | None:
         return None
     cluster_id = _as_int(item.get("cluster_id"))
     noise = bool(item.get("noise", False))
-    return StreamPoint(x=x, y=y, cluster_id=cluster_id, noise=noise)
+    timestamp = _as_float(item.get("timestamp"))
+    return StreamPoint(x=x, y=y, cluster_id=cluster_id, noise=noise, timestamp=timestamp)

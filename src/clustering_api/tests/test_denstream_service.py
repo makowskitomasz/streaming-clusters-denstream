@@ -22,6 +22,7 @@ class DummyClusterer(BaseClusterer):
 
 
 def test_update_clusters_refreshes_cache():
+    # Arrange
     dummy = DummyClusterer()
     dummy.clusters_output = {
         "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=3, density=0.5)],
@@ -31,14 +32,16 @@ def test_update_clusters_refreshes_cache():
     service = DenStreamService(clusterer=dummy, metrics=metrics)
 
     payload = [ClusterPoint(x=0.1, y=0.2)]
+    # Act
     response = service.update_clusters(payload)
-
+    # Assert
     assert len(dummy.updated_batches) == 1
     assert response["active_clusters"][0].id == "a-1"
     assert response["decayed_clusters"][0].status == "decayed"
 
 
 def test_configure_rebuilds_clusterer():
+    # Arrange
     created_clusterers = []
 
     def factory(**cfg):
@@ -51,14 +54,16 @@ def test_configure_rebuilds_clusterer():
     service = DenStreamService(clusterer_factory=factory, metrics=metrics)
     first_clusterer = service.clusterer
 
+    # Act
     updated_config = service.configure(decay_factor=0.2)
-
+    # Assert
     assert service.clusterer is not first_clusterer
     assert created_clusterers[-1].config["decay_factor"] == 0.2
     assert updated_config["decay_factor"] == 0.2
 
 
 def test_metrics_stored_after_denstream_update():
+    # Arrange
     dummy = DummyClusterer()
     dummy.clusters_output = {
         "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=3, density=0.5)],
@@ -68,15 +73,17 @@ def test_metrics_stored_after_denstream_update():
     service = DenStreamService(clusterer=dummy, metrics=metrics)
 
     payload = [ClusterPoint(x=0.1, y=0.2, batch_id=7)]
+    # Act
     service.update_clusters(payload)
     latest = metrics.get_latest("denstream")
-
+    # Assert
     assert latest is not None
     assert latest.batch_id == 7
     assert latest.n_samples == 1
 
 
 def test_denstream_logs_batch_stats(monkeypatch):
+    # Arrange
     dummy = DummyClusterer()
     dummy.clusters_output = {
         "active": [Cluster(id="a-1", centroid=(0.0, 0.0), size=2, density=0.6)],
@@ -99,8 +106,9 @@ def test_denstream_logs_batch_stats(monkeypatch):
     monkeypatch.setattr(logger, "bind", fake_bind)
 
     payload = [ClusterPoint(x=0.1, y=0.2, batch_id=4)]
+    # Act
     service.update_clusters(payload)
-
+    # Assert
     assert captured["event"] == "clustering_batch"
     assert captured["model_name"] == "denstream"
     assert captured["n_samples"] == 1

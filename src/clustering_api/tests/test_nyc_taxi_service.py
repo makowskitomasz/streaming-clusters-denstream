@@ -33,10 +33,12 @@ def create_sample_csv(tmp_path):
 
 
 def test_load_dataframe(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=2)
-
+    # Act
     df = service.load_df()
+    # Assert
     assert len(df) == 4
     assert "pickup_longitude" in df.columns
     assert "pickup_latitude" in df.columns
@@ -44,11 +46,12 @@ def test_load_dataframe(tmp_path):
 
 
 def test_next_batch_returns_datapoints(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=2)
-
+    # Act
     batch = service.next_batch()
-
+    # Assert
     assert batch is not None
     assert len(batch) == 2
 
@@ -64,38 +67,42 @@ def test_next_batch_returns_datapoints(tmp_path):
 
 
 def test_next_batch_order(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=2)
-
+    # Act
     b1 = service.next_batch()
     b2 = service.next_batch()
-
+    # Assert
     assert b1 is not None
     assert b2 is not None
     assert b1[0].timestamp < b2[0].timestamp  # chronological order
 
 
 def test_next_batch_end_of_data(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=3)
-
+    # Act
     b1 = service.next_batch()
     b2 = service.next_batch()  # should be smaller
     b3 = service.next_batch()  # should be None
-
+    # Assert
     assert b1 is not None
     assert b2 is not None
     assert b3 is None  # we reached the end
 
 
 def test_reset_stream(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=2)
-
+    # Act
     service.next_batch()
     assert service.batch_id == 1
 
     service.reset()
+    # Assert
     assert service.batch_id == 0
 
     batch = service.next_batch()
@@ -104,11 +111,12 @@ def test_reset_stream(tmp_path):
 
 
 def test_cluster_id_grid_hashing(tmp_path):
+    # Arrange
     file_path = create_sample_csv(tmp_path)
     service = NycTaxiService(file_path=file_path, batch_size=1)
-
+    # Act
     batch = service.next_batch()
-
+    # Assert
     point = batch[0]
     assert isinstance(point.cluster_id, int)
     assert point.cluster_id >= 0

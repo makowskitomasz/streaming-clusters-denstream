@@ -6,8 +6,11 @@ from clustering_api.src.services.stream_service import StreamService
 
 
 def test_generate_batch_structure():
+    # Arrange
     service = StreamService(n_clusters=2, points_per_cluster=10)
+    # Act
     data = service.generate_batch()
+    # Assert
     assert isinstance(data, list)
     assert len(data) > 0
     sample = data[0]
@@ -17,8 +20,11 @@ def test_generate_batch_structure():
 
 
 def test_save_batch_creates_file(tmp_path):
+    # Arrange
     service = StreamService(output_dir=tmp_path)
+    # Act
     file_path = service.save_batch()
+    # Assert
     assert Path(file_path).exists()
     df = pd.read_json(file_path)
     assert len(df) > 0
@@ -26,11 +32,13 @@ def test_save_batch_creates_file(tmp_path):
 
 
 def test_configure_updates_parameters():
+    # Arrange
     service = StreamService()
     old_config = service.get_state()
+    # Act
     service.configure(n_clusters=5, points_per_cluster=20, noise_ratio=0.1, drift=0.2)
     new_config = service.get_state()
-
+    # Assert
     assert new_config["n_clusters"] == 5
     assert new_config["points_per_cluster"] == 20
     assert new_config["noise_ratio"] == 0.1
@@ -40,13 +48,14 @@ def test_configure_updates_parameters():
 
 
 def test_reset_stream_resets_batch_and_centroids():
+    # Arrange
     service = StreamService()
     service.generate_batch()
     assert service.batch_id > 0
-
     old_centroids = service.get_state()["centroids"]
+    # Act
     service.reset_stream()
     new_state = service.get_state()
-
+    # Assert
     assert new_state["batch_id"] == 0
     assert old_centroids != new_state["centroids"]

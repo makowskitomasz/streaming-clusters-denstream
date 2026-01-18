@@ -9,12 +9,17 @@ from plotly import colors as plotly_colors
 
 if TYPE_CHECKING:
     from api_client import LogRecord
+    from history import CentroidSnapshot
 
 
 def build_cluster_scatter(
     points: list[tuple[float, float]],
     labels: list[int],
     centroids: dict[int, tuple[float, float]] | None = None,
+    *,
+    x_range: tuple[float, float] | None = None,
+    y_range: tuple[float, float] | None = None,
+    uirevision: str = "cluster-scatter",
 ) -> go.Figure:
     """Build a Plotly scatter for clusters with optional centroids."""
     if len(points) != len(labels):
@@ -42,8 +47,10 @@ def build_cluster_scatter(
         title="Current clusters",
         xaxis_title="x",
         yaxis_title="y",
+        xaxis={"range": x_range or [-8, 8]},
+        yaxis={"range": y_range or [-8, 8]},
         legend={"orientation": "v"},
-        uirevision="cluster-scatter",
+        uirevision=uirevision,
         height=600,
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
@@ -51,10 +58,13 @@ def build_cluster_scatter(
 
 
 def build_centroid_trajectories(
-    history: list[dict[int, tuple[float, float]]],
+    history: list[CentroidSnapshot],
     *,
     show_labels: bool = True,
+    show_timestamps: bool = False,
     only_last_n: int | None = None,
+    x_range: tuple[float, float] | None = None,
+    y_range: tuple[float, float] | None = None,
 ) -> go.Figure:
     """Build a 2D trajectory plot for centroid history."""
     fig = go.Figure()
@@ -68,18 +78,21 @@ def build_centroid_trajectories(
         return fig
 
     snapshots = history[-only_last_n:] if only_last_n else history
-    cluster_ids = sorted({cid for snap in snapshots for cid in snap})
+    cluster_ids = sorted({cid for snap in snapshots for cid in snap.centroids})
     for cluster_id in cluster_ids:
         xs: list[float | None] = []
         ys: list[float | None] = []
+        hovertext: list[str | None] = []
         for snap in snapshots:
-            if cluster_id in snap:
-                x, y = snap[cluster_id]
+            if cluster_id in snap.centroids:
+                x, y = snap.centroids[cluster_id]
                 xs.append(x)
                 ys.append(y)
+                hovertext.append(snap.timestamp if show_timestamps else None)
             else:
                 xs.append(None)
                 ys.append(None)
+                hovertext.append(None)
         color = _color_for_label(cluster_id)
         fig.add_trace(
             go.Scatter(
@@ -89,13 +102,19 @@ def build_centroid_trajectories(
                 name=f"Cluster {cluster_id}",
                 line={"color": color},
                 marker={"color": color, "size": 6},
+                text=hovertext,
+                hovertemplate=(
+                    f"C{cluster_id}<br>"
+                    "x=%{x:.2f}<br>y=%{y:.2f}" + ("<br>t=%{text}" if show_timestamps else "") + "<extra></extra>"
+                ),
             ),
         )
         if show_labels:
-            last_point = next(
-                (snap[cluster_id] for snap in reversed(snapshots) if cluster_id in snap),
+            last_snapshot = next(
+                (snap for snap in reversed(snapshots) if cluster_id in snap.centroids),
                 None,
             )
+            last_point = last_snapshot.centroids[cluster_id] if last_snapshot else None
             if last_point is not None:
                 fig.add_trace(
                     go.Scatter(
@@ -107,6 +126,16 @@ def build_centroid_trajectories(
                         textposition="top center",
                         marker={"color": color, "size": 10, "symbol": "circle-open"},
                         showlegend=False,
+                        hovertemplate=(
+                            f"C{cluster_id}<br>"
+                            "x=%{x:.2f}<br>y=%{y:.2f}"
+                            + (
+                                f"<br>t={last_snapshot.timestamp}"
+                                if show_timestamps and last_snapshot is not None
+                                else ""
+                            )
+                            + "<extra></extra>"
+                        ),
                     ),
                 )
 
@@ -114,11 +143,50 @@ def build_centroid_trajectories(
         title="Centroid trajectories",
         xaxis_title="x",
         yaxis_title="y",
+        xaxis={"range": x_range or [-8, 8]},
+        yaxis={"range": y_range or [-8, 8]},
         legend={"orientation": "v"},
         uirevision="centroid-trajectories",
         height=500,
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
     )
+    return fig
+
+
+def build_centroid_snapshot(
+    snapshot: CentroidSnapshot,
+    *,
+    show_labels: bool = True,
+    x_range: tuple[float, float] | None = None,
+    y_range: tuple[float, float] | None = None,
+) -> go.Figure:
+    """Build a plot for centroid positions at a single timestamp."""
+    fig = go.Figure()
+    if not snapshot.centroids:
+        fig.update_layout(
+            title="Centroid snapshot",
+            xaxis_title="x",
+            yaxis_title="y",
+            xaxis={"range": x_range or [-8, 8]},
+            yaxis={"range": y_range or [-8, 8]},
+            uirevision="centroid-snapshot",
+        )
+        return fig
+    _add_centroid_traces(fig, snapshot.centroids)
+    fig.update_layout(
+        title=f"Centroid snapshot @ {snapshot.timestamp}",
+        xaxis_title="x",
+        yaxis_title="y",
+        xaxis={"range": x_range or [-8, 8]},
+        yaxis={"range": y_range or [-8, 8]},
+        legend={"orientation": "v"},
+        uirevision="centroid-snapshot",
+        height=500,
+        margin={"l": 20, "r": 20, "t": 40, "b": 20},
+    )
+    if not show_labels:
+        for trace in fig.data:
+            trace.update(text=None)
     return fig
 
 
