@@ -47,7 +47,7 @@ make run-frontend-local
 ### NYC Taxi (Primary Use Case)
 When `data_source = nyc_taxi`:
 
-- The dashboard streams pickup points from a CSV file (default: `data/raw/nyc_taxi/nyc_taxi_jan01.csv`).
+- The dashboard streams pickup points from a CSV file (default: `data/nyc_taxi/nyc_taxi_jan01.csv`).
 - Each tick represents **one second** of data.
 - All pickups within that second are returned as points.
 - Plot axes are computed from the NYC file bounds (mean ± 3 * std for longitude/latitude).
@@ -237,7 +237,7 @@ Displays backend logs and metrics over time.
 
 ## NYC Taxi Workflow (Recommended)
 1) Select `data_source = nyc_taxi`.
-2) Set `nyc_file_path` to `data/raw/nyc_taxi/nyc_taxi_jan01.csv`.
+2) Set `nyc_file_path` to `data/nyc_taxi/nyc_taxi_jan01.csv.csv`.
 3) Click **Apply**.
 4) Click **Start Stream**.
 5) Adjust TTL and DenStream parameters to tune cluster size/behavior.
