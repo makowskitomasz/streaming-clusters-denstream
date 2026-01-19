@@ -10,13 +10,13 @@ try:
 except ImportError:  # pragma: no cover
     sklearn_silhouette_score = None
 
-from .api_client import MetricsLatestResponse
-from .frontend_state import MIN_HISTORY_FOR_DRIFT
+from api_client import MetricsLatestResponse
+from frontend_state import MIN_HISTORY_FOR_DRIFT
 
 if TYPE_CHECKING:
     from collections import deque
 
-    from .history import CentroidSnapshot
+    from history import CentroidSnapshot
 
 
 def compute_metrics(

@@ -6,12 +6,11 @@ from time import time
 
 import numpy as np
 import streamlit as st
-
-from .api_client import ApiClient, BackendError, StreamParams, StreamPoint
-from .frontend_metrics import append_local_metrics, apply_metrics, compute_metrics
-from .frontend_state import CENTROID_DIMS, UiLogEntry
-from .history import CentroidSnapshot, append_history, compute_centroids_from_points
-from .utils import _lonlat_to_m, measure_latency
+from api_client import ApiClient, BackendError, StreamParams, StreamPoint
+from frontend_metrics import append_local_metrics, apply_metrics, compute_metrics
+from frontend_state import CENTROID_DIMS, UiLogEntry
+from history import CentroidSnapshot, append_history, compute_centroids_from_points
+from utils import _lonlat_to_m, measure_latency
 
 
 def points_from_batch(

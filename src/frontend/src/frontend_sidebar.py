@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import streamlit as st
-
-from .api_client import ApiClient, BackendError, StreamParams
-from .frontend_state import (
+from api_client import ApiClient, BackendError, StreamParams
+from frontend_state import (
     NYC_EPSILON_DEFAULT_M,
     NYC_EPSILON_MAX_M,
     NYC_EPSILON_MIN_M,

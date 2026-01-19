@@ -4,11 +4,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
-
-from .frontend_metrics import compute_drift_magnitude
-from .frontend_state import UiActions, extract_nyc_ranges
-from .frontend_stream import build_plot_data, refresh_logs
-from .plotting import (
+from frontend_metrics import compute_drift_magnitude
+from frontend_state import UiActions, extract_nyc_ranges
+from frontend_stream import build_plot_data, refresh_logs
+from plotting import (
     build_centroid_snapshot,
     build_centroid_trajectories,
     build_cluster_scatter,
@@ -16,7 +15,7 @@ from .plotting import (
 )
 
 if TYPE_CHECKING:
-    from .api_client import ApiClient
+    from api_client import ApiClient
 
 
 def render_tab_current_state() -> None:

@@ -3,10 +3,9 @@ from __future__ import annotations
 from time import time
 
 import streamlit as st
-
-from .api_client import ApiClient, BackendError
-from .frontend_sidebar import _build_synthetic_stream_payload, render_sidebar
-from .frontend_state import (
+from api_client import ApiClient, BackendError
+from frontend_sidebar import _build_synthetic_stream_payload, render_sidebar
+from frontend_state import (
     HIGH_BATCH_SIZE,
     HIGH_DRIFT_RATE,
     TAB_NAMES,
@@ -14,8 +13,8 @@ from .frontend_state import (
     init_state,
     reset_state,
 )
-from .frontend_stream import call_backend, next_batch_backend
-from .frontend_tabs import (
+from frontend_stream import call_backend, next_batch_backend
+from frontend_tabs import (
     render_tab_current_state,
     render_tab_history_view,
     render_tab_logs,
