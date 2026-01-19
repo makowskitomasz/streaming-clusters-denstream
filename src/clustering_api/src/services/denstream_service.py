@@ -38,6 +38,7 @@ class DenStreamService:
         metrics: MetricsService | None = None,
         **config: ConfigValue,
     ) -> None:
+        """Initialize DenStream service with optional custom dependencies."""
         self._config = {**self.DEFAULT_CONFIG, **config}
         self._factory = clusterer_factory or (lambda **cfg: DenStreamClusterer(**cfg))
         self.clusterer = clusterer or self._factory(**self._config)
@@ -46,12 +47,14 @@ class DenStreamService:
         self._decayed_clusters: list[Cluster] = []
 
     def _refresh_cache(self) -> dict[str, list[Cluster]]:
+        """Refresh cached cluster lists from the underlying clusterer."""
         clusters = self.clusterer.get_clusters()
         self._active_clusters = clusters.get("active", [])
         self._decayed_clusters = clusters.get("decayed", [])
         return self.get_current_clusters()
 
     def update_clusters(self, batch: Iterable[Any]) -> dict[str, list[Cluster]]:
+        """Update DenStream with a new batch and return current clusters."""
         batch_list = list(batch)
         with measure_latency() as timer:
             if not batch_list:
@@ -75,12 +78,14 @@ class DenStreamService:
         return response
 
     def get_current_clusters(self) -> dict[str, list[Cluster]]:
+        """Return cached active and decayed clusters."""
         return {
             "active_clusters": list(self._active_clusters),
             "decayed_clusters": list(self._decayed_clusters),
         }
 
     def configure(self, **config: dict) -> dict[str, float]:
+        """Update DenStream configuration and reset cached clusters."""
         updated = False
         for key, value in config.items():
             if value is not None and key in self._config:
@@ -93,9 +98,11 @@ class DenStreamService:
         return dict(self._config)
 
     def get_config(self) -> dict[str, Any]:
+        """Return current DenStream configuration."""
         return dict(self._config)
 
     def _evaluate_metrics(self, batch: list[Any]) -> MetricsRecord:
+        """Compute DenStream metrics for a batch of points."""
         features = self._batch_to_features(batch)
         labels = self._assign_labels(features)
         batch_id = self._extract_batch_id(batch)
@@ -107,10 +114,12 @@ class DenStreamService:
         )
 
     def _batch_to_features(self, batch: list[Any]) -> np.ndarray:
+        """Convert a batch of inputs into a numeric feature array."""
         features = [self._extract_point(item) for item in batch]
         return np.asarray(features, dtype=float)
 
     def _extract_point(self, item: object) -> list[float]:
+        """Extract x/y coordinates from a supported point shape."""
         match item:
             case {"x": x, "y": y}:
                 return [float(x), float(y)]
@@ -123,6 +132,7 @@ class DenStreamService:
                 raise TypeError(msg)
 
     def _assign_labels(self, features: np.ndarray) -> np.ndarray:
+        """Assign each feature to the nearest active centroid or noise."""
         if features.size == 0:
             return np.array([], dtype=int)
         if not self._active_clusters:
@@ -137,6 +147,7 @@ class DenStreamService:
         return nearest.astype(int)
 
     def _extract_batch_id(self, batch: list[Any]) -> str | None:
+        """Derive a shared batch_id when all items agree."""
         batch_ids = [item.batch_id for item in batch if hasattr(item, "batch_id")]
         unique_ids = {value for value in batch_ids if value is not None}
         if len(unique_ids) == 1:
@@ -151,6 +162,7 @@ class DenStreamService:
         batch_id: str | int | None,
         latency_ms: float,
     ) -> None:
+        """Record batch statistics in the structured logs."""
         avg_density = self._average_density()
         logger.bind(
             event="clustering_batch",
@@ -165,6 +177,7 @@ class DenStreamService:
         ).info("DenStream batch processed")
 
     def _average_density(self) -> float | None:
+        """Compute average density across active clusters."""
         if not self._active_clusters:
             return None
         return float(

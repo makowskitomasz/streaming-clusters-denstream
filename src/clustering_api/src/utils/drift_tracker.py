@@ -57,6 +57,7 @@ class DriftTracker:
         ema_alpha: float | None = None,
         smooth_direction: bool = True,
     ) -> None:
+        """Initialize drift tracking with optional EMA smoothing."""
         self._validate_alpha(ema_alpha)
         self._ema_alpha = ema_alpha
         self._smooth_direction = smooth_direction
@@ -212,6 +213,7 @@ class DriftTracker:
         self,
         centroids: dict[int, np.ndarray],
     ) -> dict[int, np.ndarray]:
+        """Validate and copy centroid arrays into a normalized dict."""
         sanitized: dict[int, np.ndarray] = {}
         for cluster_id, centroid in centroids.items():
             array = np.asarray(centroid, dtype=float).copy()
@@ -225,6 +227,7 @@ class DriftTracker:
         return sanitized
 
     def _set_mode(self, mode: str) -> None:
+        """Lock update mode to timestamp- or step-based usage."""
         if self._mode is None:
             self._mode = mode
             return
@@ -233,6 +236,7 @@ class DriftTracker:
             raise ValueError(msg)
 
     def _compute_dt(self, now: float) -> float:
+        """Compute time delta between timestamped updates."""
         if self._last_timestamp is None:
             self._last_timestamp = now
             return 1.0
@@ -248,6 +252,7 @@ class DriftTracker:
         displacement: np.ndarray,
         distance: float,
     ) -> np.ndarray | None:
+        """Normalize a displacement vector to unit direction."""
         if distance == 0.0:
             return None
         return displacement / distance
@@ -258,6 +263,7 @@ class DriftTracker:
         distance: float,
         direction: np.ndarray | None,
     ) -> tuple[float | None, np.ndarray | None]:
+        """Update EMA values for distance and direction."""
         if self._ema_alpha is None:
             return None, None
         previous = self._ema_distance.get(cluster_id, distance)
@@ -279,6 +285,7 @@ class DriftTracker:
         return ema_distance, ema_direction
 
     def _validate_alpha(self, alpha: float | None) -> None:
+        """Validate EMA alpha when provided."""
         if alpha is None:
             return
         if alpha <= 0 or alpha > 1:

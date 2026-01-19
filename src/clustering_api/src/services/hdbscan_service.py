@@ -59,6 +59,7 @@ class HdbscanService:
         history_size: int = 50,
         metrics: MetricsService | None = None,
     ) -> None:
+        """Initialize HDBSCAN service with clustering and history settings."""
         self._validate_params(
             min_cluster_size=min_cluster_size,
             min_samples=min_samples,
@@ -147,10 +148,12 @@ class HdbscanService:
         return tuple(self._history)
 
     def _build_clusterer(self) -> HDBSCAN:
+        """Create an HDBSCAN instance from stored parameters."""
         params = {key: value for key, value in self._params.items() if value is not None}
         return HDBSCAN(**params)
 
     def _fit_predict(self, clusterer: HDBSCAN, data: np.ndarray) -> np.ndarray:
+        """Fit and predict with optional deterministic random state."""
         if self._random_state is None:
             return clusterer.fit_predict(data)
         rng_state = np.random.get_state()
@@ -161,6 +164,7 @@ class HdbscanService:
             np.random.set_state(rng_state)
 
     def _append_history(self, batch_id: str | None, n_samples: int) -> None:
+        """Append batch metadata to the history buffer."""
         self._history.append(
             HdbscanBatchMetadata(
                 batch_id=batch_id,
@@ -173,6 +177,7 @@ class HdbscanService:
         self,
         labels: np.ndarray,
     ) -> dict[str, float] | None:
+        """Summarize non-noise cluster sizes with min/mean/max."""
         cluster_labels = labels[labels != -1]
         if cluster_labels.size == 0:
             return None
@@ -195,6 +200,7 @@ class HdbscanService:
         history_size: int,
         random_state: int | None,
     ) -> None:
+        """Validate clustering parameters before creating a model."""
         if min_cluster_size <= 0:
             msg = f"min_cluster_size must be greater than 0, got {min_cluster_size}"
             raise ValueError(msg)
@@ -223,6 +229,7 @@ class HdbscanService:
         batch_id: str | None,
         latency_ms: float,
     ) -> None:
+        """Record batch statistics in the structured logs."""
         logger.bind(
             event="clustering_batch",
             model_name="hdbscan",

@@ -17,6 +17,7 @@ class BatchResponse:
     points: list[object]
 
     def to_dict(self) -> dict[str, object]:
+        """Serialize batch response to a JSON-ready dict."""
         return {
             "batch_id": self.batch_id,
             "points_generated": self.points_generated,
@@ -30,6 +31,7 @@ class SaveResponse:
     file_path: str
 
     def to_dict(self) -> dict[str, str]:
+        """Serialize save response to a JSON-ready dict."""
         return {"message": self.message, "file_path": self.file_path}
 
 
@@ -38,6 +40,7 @@ class StateResponse:
     state: dict[str, object]
 
     def to_dict(self) -> dict[str, dict[str, object]]:
+        """Serialize state response to a JSON-ready dict."""
         return {"state": self.state}
 
 

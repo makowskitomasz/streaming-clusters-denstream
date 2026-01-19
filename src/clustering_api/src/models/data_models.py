@@ -8,6 +8,8 @@ DIMENSIONS = 2
 
 
 class DataPoint(BaseModel):
+    """Raw data point emitted by stream generators."""
+
     x: float
     y: float
     timestamp: float
@@ -31,6 +33,7 @@ class ClusterPoint(BaseModel):
     @field_validator("weight")
     @classmethod
     def _non_negative_weight(cls, value: float) -> float:
+        """Validate that weight is positive."""
         if value <= 0:
             msg = "ClusterPoint weight must be positive"
             raise ValueError(msg)
@@ -53,6 +56,7 @@ class Cluster(BaseModel):
         cls,
         value: tuple[float, float],
     ) -> tuple[float, float]:
+        """Validate centroid dimensionality."""
         if len(value) != DIMENSIONS:
             msg = "Centroid must be a 2D coordinate"
             raise ValueError(msg)
@@ -65,6 +69,7 @@ class Cluster(BaseModel):
         points: list[ClusterPoint],
         info: ValidationInfo,
     ) -> list[ClusterPoint]:
+        """Ensure cluster size is not smaller than listed points."""
         expected_size = info.data.get("size") if info.data else None
         if expected_size is None:
             return points
@@ -84,6 +89,7 @@ class ClusterSummary(BaseModel):
 
     @classmethod
     def from_clusters(cls, clusters: list[Cluster], noise_points: int = 0) -> ClusterSummary:
+        """Aggregate basic statistics from a list of clusters."""
         total_clusters = len(clusters)
         total_points = sum(cluster.size for cluster in clusters)
         avg_density = sum(cluster.density for cluster in clusters) / total_clusters if total_clusters else 0.0

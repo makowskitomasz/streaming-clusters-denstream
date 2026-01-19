@@ -15,6 +15,7 @@ class LogsResponse:
     logs: list[dict[str, object]]
 
     def to_dict(self) -> dict[str, list[dict[str, object]]]:
+        """Serialize logs payload to a JSON-ready dict."""
         return {"logs": self.logs}
 
 
@@ -22,5 +23,6 @@ class LogsResponse:
 def recent_logs(
     limit: Annotated[int, Query(ge=1, le=1000)] = 200,
 ) -> dict[str, list[dict[str, object]]]:
+    """Return the latest backend logs."""
     response = LogsResponse(logs=get_recent_logs(limit))
     return response.to_dict()

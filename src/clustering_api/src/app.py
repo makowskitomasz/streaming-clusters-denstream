@@ -10,6 +10,7 @@ from .utils.logging_utils import init_logging
 
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
     init_logging()
     app = FastAPI(title="Clustering API")
     app.include_router(health_api)
