@@ -253,6 +253,25 @@ def _compute_metrics(
     }
 
 
+def _mark_small_clusters_as_noise(
+    labels: np.ndarray,
+    *,
+    min_cluster_size: int,
+) -> np.ndarray:
+    if labels.size == 0:
+        return labels
+    valid = labels[labels != -1]
+    if valid.size == 0:
+        return labels
+    unique, counts = np.unique(valid, return_counts=True)
+    small = unique[counts < min_cluster_size]
+    if small.size == 0:
+        return labels
+    updated = labels.copy()
+    updated[np.isin(updated, small)] = -1
+    return updated
+
+
 def _points_from_batch(
     points: list[StreamPoint],
     *,
@@ -497,6 +516,11 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
         points, labels, timestamps = parsed
         _accumulate_points(points, labels, timestamps, st.session_state.ttl_seconds)
         st.session_state.centroids = {}
+        if st.session_state.data_source == "nyc_taxi":
+            st.session_state.labels = _mark_small_clusters_as_noise(
+                st.session_state.labels,
+                min_cluster_size=2,
+            )
     centroid_map: dict[int, tuple[float, float]] = {}
     raw_points = response.raw.get("points")
     if isinstance(raw_points, list) and raw_points:
