@@ -26,8 +26,11 @@ class LogPayload(TypedDict, total=False):
 
 
 class _LoguruRecord(Protocol):
-    def __getitem__(self, key: str) -> object: ...
-    def get(self, key: str, default: object = ...) -> object: ...
+    def __getitem__(self, key: str) -> object:
+        """Return a record field by key."""
+
+    def get(self, key: str, default: object = ...) -> object:
+        """Return a record field with a default fallback."""
 
 
 class _LoguruMessage(Protocol):
@@ -42,6 +45,7 @@ class LogEntry:
     extra: LogExtra
 
     def to_payload(self) -> LogPayload:
+        """Serialize the log entry into the public payload format."""
         payload: LogPayload = {
             "timestamp": self.timestamp,
             "level": self.level,
@@ -106,14 +110,17 @@ def init_logging(
 
 
 def log_info(message: str, **kwargs: object) -> None:
+    """Log an info-level message with optional structured context."""
     logger.bind(**kwargs).info(message)
 
 
 def log_warning(message: str, **kwargs: object) -> None:
+    """Log a warning-level message with optional structured context."""
     logger.bind(**kwargs).warning(message)
 
 
 def log_error(message: str, **kwargs: object) -> None:
+    """Log an error-level message with optional structured context."""
     logger.bind(**kwargs).error(message)
 
 
@@ -126,6 +133,7 @@ def get_recent_logs(limit: int = 200) -> list[LogPayload]:
 
 
 def _log_sink(message: _LoguruMessage) -> None:
+    """Capture Loguru records into the in-memory recent log buffer."""
     record = message.record
 
     t = record["time"]

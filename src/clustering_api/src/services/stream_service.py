@@ -39,6 +39,7 @@ class StreamState:
     dynamic_interval: int
 
     def to_dict(self) -> dict[str, object]:
+        """Serialize stream state to a JSON-ready dict."""
         return {
             "n_clusters": self.n_clusters,
             "points_per_cluster": self.points_per_cluster,
@@ -70,6 +71,7 @@ class StreamService:
         dynamic_max_clusters: int = 6,
         dynamic_interval: int = 10,
     ) -> None:
+        """Initialize the synthetic stream generator configuration."""
         self._n_clusters = n_clusters
         self._points_per_cluster = points_per_cluster
         self._noise_ratio = noise_ratio
@@ -87,22 +89,27 @@ class StreamService:
 
     @property
     def batch_id(self) -> int:
+        """Return the current batch counter."""
         return self._batch_id
 
     @property
     def n_clusters(self) -> int:
+        """Return the current number of clusters."""
         return self._n_clusters
 
     @property
     def points_per_cluster(self) -> int:
+        """Return the configured points per cluster."""
         return self._points_per_cluster
 
     @property
     def noise_ratio(self) -> float:
+        """Return the configured noise ratio."""
         return self._noise_ratio
 
     @property
     def drift(self) -> float:
+        """Return the configured drift magnitude."""
         return self._drift
 
     def generate_batch(self) -> list[DataPoint]:
@@ -309,9 +316,11 @@ class StreamService:
         return state.to_dict()
 
     def _total_points_per_batch(self) -> int:
+        """Compute total points emitted per batch."""
         return self._n_clusters * self._points_per_cluster + self._noise_points_count()
 
     def _noise_points_count(self) -> int:
+        """Compute the number of noise points per batch."""
         return int(self._points_per_cluster * self._n_clusters * self._noise_ratio)
 
     def _update_centroids(self) -> None:
@@ -321,6 +330,7 @@ class StreamService:
         self._centroids = self._centroids + drift_vector
 
     def _initialize_centroids(self, n_clusters: int) -> np.ndarray:
+        """Initialize cluster centroids within a fixed bounding box."""
         rng = np.random.default_rng()
         return rng.uniform(-5, 5, size=(n_clusters, DIMENSIONS))
 
@@ -329,6 +339,7 @@ class StreamService:
         records: list[DataPoint | None],
         timestamp: float,
     ) -> int:
+        """Fill records with clustered points and return count written."""
         cluster_points = self._generate_cluster_points()
         cluster_ids = np.repeat(np.arange(self._n_clusters), self._points_per_cluster)
         flattened = cluster_points.reshape(-1, DIMENSIONS)
@@ -349,6 +360,7 @@ class StreamService:
         timestamp: float,
         start_index: int,
     ) -> None:
+        """Fill records with noise points starting at the offset."""
         noise_points = self._generate_noise_points()
         for offset, point in enumerate(noise_points):
             records[start_index + offset] = self._build_record(
@@ -359,6 +371,7 @@ class StreamService:
             )
 
     def _generate_cluster_points(self) -> np.ndarray:
+        """Sample clustered points around current centroids."""
         rng = np.random.default_rng()
         noise_component = rng.normal(
             loc=0.0,
@@ -368,6 +381,7 @@ class StreamService:
         return self._centroids[:, None, :] + noise_component
 
     def _generate_noise_points(self) -> np.ndarray:
+        """Sample noise points uniformly within bounds."""
         rng = np.random.default_rng()
         return rng.uniform(-8, 8, size=(self._noise_points_count(), DIMENSIONS))
 
@@ -379,6 +393,7 @@ class StreamService:
         *,
         noise: bool,
     ) -> DataPoint:
+        """Create a DataPoint from raw coordinates."""
         return DataPoint(
             x=float(point[0]),
             y=float(point[1]),
@@ -390,6 +405,7 @@ class StreamService:
         )
 
     def _generate_records(self) -> list[DataPoint]:
+        """Generate a full batch of clustered and noise data points."""
         self._batch_id += 1
         self._dynamic_counter += 1
         self._maybe_adjust_clusters()
@@ -404,6 +420,7 @@ class StreamService:
         return [cast("DataPoint", record) for record in records]
 
     def _maybe_adjust_clusters(self) -> None:
+        """Adjust cluster count dynamically when enabled."""
         if not self._dynamic_enabled:
             return
         if self._dynamic_interval <= 0:

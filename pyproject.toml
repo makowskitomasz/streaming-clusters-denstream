@@ -56,6 +56,7 @@ warn_unused_ignores = true
 disallow_any_generics = true
 no_implicit_optional = true
 explicit_package_bases = true
+mypy_path = ["src/frontend/src"]
 
 [[tool.mypy.overrides]]
 module = ["api_client", "history", "plotting", "utils"]

@@ -30,6 +30,7 @@ class MetricsService:
     """Compute and store clustering metrics for monitoring."""
 
     def __init__(self, history_size: int = 100) -> None:
+        """Initialize the metrics service with a bounded history size."""
         if history_size <= 0:
             msg = f"history_size must be greater than 0, got {history_size}"
             raise ValueError(msg)
@@ -98,6 +99,7 @@ class MetricsService:
         self._history.clear()
 
     def _store(self, record: MetricsRecord) -> None:
+        """Persist a metrics record in the per-model history buffer."""
         records = self._history.setdefault(
             record.model_name,
             deque(maxlen=self._history_size),
@@ -105,9 +107,11 @@ class MetricsService:
         records.append(record)
 
     def _count_clusters(self, labels: np.ndarray) -> int:
+        """Count distinct non-noise cluster labels."""
         return len({int(label) for label in labels.tolist() if int(label) != -1})
 
     def _compute_noise_ratio(self, labels: np.ndarray, n_samples: int) -> float:
+        """Compute the fraction of labels marked as noise."""
         if n_samples == 0:
             return 0.0
         noise_count = int(np.sum(labels == -1))
@@ -119,6 +123,7 @@ class MetricsService:
         labels: np.ndarray,
         number_of_clusters: int,
     ) -> float | None:
+        """Compute silhouette score with safeguards for edge cases."""
         if data.shape[0] < MIN_SAMPLES_FOR_SILHOUETTE or number_of_clusters < MIN_CLUSTERS_FOR_SILHOUETTE:
             return None
         mask = labels != -1
@@ -130,6 +135,7 @@ class MetricsService:
         return float(silhouette_score(data[mask], clustered_labels))
 
     def _log(self, record: MetricsRecord) -> None:
+        """Emit a log entry describing the computed metrics."""
         if record.n_samples == 0 or record.number_of_clusters == 0:
             logger.warning(
                 "metrics computed | model={model} batch={batch} n_samples={n} "

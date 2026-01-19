@@ -42,6 +42,7 @@ class ConfigResponse:
     config: dict[str, Any]
 
     def to_dict(self) -> dict[str, object]:
+        """Serialize config response to a JSON-ready dict."""
         return {"message": self.message, "config": self.config}
 
 

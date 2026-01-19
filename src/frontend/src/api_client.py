@@ -221,12 +221,13 @@ class ApiClient:
     def get_nyc_taxi_bounds(self) -> dict[str, object]:
         return self._request("GET", "/v1/nyc-taxi/bounds")
 
-    def update_denstream(self, points: list[dict[str, object]]) -> dict[str, object]:
-        return self._request(
+    def update_denstream(self, points: list[dict[str, object]]) -> ClusterStateResponse:
+        data = self._request(
             "POST",
             "/v1/clustering/denstream/update",
             json={"points": points},
         )
+        return self._parse_cluster_state(data)
 
     def configure_denstream(self, payload: dict[str, object]) -> dict[str, object]:
         return self._request("POST", "/v1/clustering/denstream/configure", json=payload)

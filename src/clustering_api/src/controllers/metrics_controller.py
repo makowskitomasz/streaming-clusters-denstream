@@ -14,6 +14,7 @@ class MetricsResponse:
     latest: dict[str, dict[str, object]]
 
     def to_dict(self) -> dict[str, dict[str, dict[str, object]]]:
+        """Serialize metrics payload to a JSON-ready dict."""
         return {"latest": self.latest}
 
 

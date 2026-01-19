@@ -12,6 +12,7 @@ class HealthResponse:
     status: str
 
     def to_dict(self) -> dict[str, str]:
+        """Serialize health status to a JSON-ready dict."""
         return {"status": self.status}
 
 

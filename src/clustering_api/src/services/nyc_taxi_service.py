@@ -23,6 +23,7 @@ class NycTaxiService:
     NYC_LATITUDE_RANGE = (40.45, 40.95)
 
     def __init__(self, file_path: str, batch_size: int = 500) -> None:
+        """Initialize NYC Taxi stream with a data source and batch size."""
         self._file_path = Path(file_path)
         self._batch_size = batch_size
         self._iterator: Iterator[tuple[int, pd.Series]] | None = None
@@ -32,10 +33,12 @@ class NycTaxiService:
 
     @property
     def batch_size(self) -> int:
+        """Return current batch size."""
         return self._batch_size
 
     @property
     def file_path(self) -> Path:
+        """Return the current data source path."""
         return self._file_path
 
     def load_df(self) -> pd.DataFrame:
@@ -69,14 +72,17 @@ class NycTaxiService:
         return df.sort_values("tpep_pickup_datetime")
 
     def _df_to_datapoint(self, row: pd.Series) -> DataPoint:
+        """Convert a raw row into a DataPoint."""
         return self._row_to_datapoint(row)
 
     def _df_to_clusterpoint(self, row: pd.Series) -> ClusterPoint:
+        """Convert a raw row into a ClusterPoint."""
         return map_datapoint_to_clusterpoint(
             self._row_to_datapoint(row),
         )
 
     def _ensure_iterator(self) -> None:
+        """Create a row iterator if not already initialized."""
         if self._iterator is None:
             df = self.load_df()
             self._iterator = df.iterrows()
@@ -139,6 +145,7 @@ class NycTaxiService:
         self._cached_bounds = None
 
     def configure(self, file_path: str | None = None, batch_size: int | None = None) -> None:
+        """Update source file path or batch size and reset iterator."""
         if file_path is not None:
             self._file_path = Path(file_path)
         if batch_size is not None and batch_size > 0:
@@ -146,6 +153,7 @@ class NycTaxiService:
         self.reset()
 
     def bounds(self) -> tuple[float, float, float, float] | None:
+        """Compute approximate bounds from a sample of the input file."""
         if self._cached_bounds is not None:
             return self._cached_bounds
         if not self._file_path.exists():
@@ -191,6 +199,7 @@ class NycTaxiService:
         return self._cached_bounds
 
     def _row_to_datapoint(self, row: pd.Series) -> DataPoint:
+        """Convert a raw row into a DataPoint with a grid-based cluster id."""
         grid_x = int(row["pickup_longitude"] * 100)
         grid_y = int(row["pickup_latitude"] * 100)
         cluster_id = abs(hash((grid_x, grid_y))) % 500

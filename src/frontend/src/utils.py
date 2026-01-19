@@ -13,6 +13,7 @@ NYC_LAT0 = 40.75
 _M_PER_DEG_LAT = 111_320.0
 _M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(NYC_LAT0))
 
+
 @dataclass(slots=True)
 class Latency:
     ms: float = 0.0
