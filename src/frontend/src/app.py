@@ -40,6 +40,7 @@ except ImportError:  # pragma: no cover
             st.session_state[last_key] = now
             _rerun()
 
+
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
@@ -58,7 +59,7 @@ TAB_NAMES = ["Current State", "History View", "Logs"]
 
 NYC_EPSILON_DEFAULT_M = 500.0
 NYC_EPSILON_MIN_M = 50.0
-NYC_EPSILON_MAX_M = 5000.0
+NYC_EPSILON_MAX_M = 10000.0
 NYC_EPSILON_STEP_M = 50.0
 
 SYN_EPSILON_MIN = 0.001
@@ -108,6 +109,7 @@ class UiLogEntry:
             "noise_ratio": round(self.noise_ratio, 3),
             "latency_ms": round(self.latency_ms, 2),
         }
+
 
 @dataclass(frozen=True, slots=True)
 class UiActions:
@@ -160,7 +162,7 @@ def _init_state() -> None:
     if "point_timestamps" not in st.session_state:
         st.session_state.point_timestamps = np.array([], dtype=float)
     if "centroids" not in st.session_state:
-        st.session_state.centroids = np.array([])
+        st.session_state.centroids = {}
     if "metrics" not in st.session_state:
         st.session_state.metrics = {
             "silhouette_score": None,
@@ -186,7 +188,7 @@ def _init_state() -> None:
     if "backend_status" not in st.session_state:
         st.session_state.backend_status = "Disconnected"
     if "point_mode" not in st.session_state:
-        st.session_state.point_mode = False
+        st.session_state.point_mode = True
     if "points_per_tick" not in st.session_state:
         st.session_state.points_per_tick = 25
     if "ttl_seconds" not in st.session_state:
@@ -207,7 +209,7 @@ def _reset_state() -> None:
     st.session_state.points = np.empty((0, CENTROID_DIMS))
     st.session_state.labels = np.array([], dtype=int)
     st.session_state.point_timestamps = np.array([], dtype=float)
-    st.session_state.centroids = np.array([])
+    st.session_state.centroids = {}
     st.session_state.metrics = {
         "silhouette_score": None,
         "active_clusters": 0,
@@ -339,10 +341,10 @@ def _build_plot_data() -> tuple[
     labels_list = [int(label) for label in labels.tolist()]
     centroids = st.session_state.centroids
     centroid_map: dict[int, tuple[float, float]] = {}
-    if isinstance(centroids, np.ndarray) and centroids.size:
-        for idx, centroid in enumerate(centroids.tolist()):
-            if isinstance(centroid, (list, tuple)) and len(centroid) == CENTROID_DIMS:
-                centroid_map[idx] = (float(centroid[0]), float(centroid[1]))
+    if isinstance(centroids, dict):
+        for label, centroid in centroids.items():
+            if isinstance(label, int) and isinstance(centroid, (list, tuple)) and len(centroid) == CENTROID_DIMS:
+                centroid_map[label] = (float(centroid[0]), float(centroid[1]))
     return points_list, labels_list, centroid_map
 
 
@@ -494,11 +496,8 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
     if parsed:
         points, labels, timestamps = parsed
         _accumulate_points(points, labels, timestamps, st.session_state.ttl_seconds)
-        st.session_state.centroids = np.array([])
-        st.session_state.metrics = _compute_metrics(
-            st.session_state.points,
-            st.session_state.labels,
-        )
+        st.session_state.centroids = {}
+    centroid_map: dict[int, tuple[float, float]] = {}
     raw_points = response.raw.get("points")
     if isinstance(raw_points, list) and raw_points:
         try:
@@ -526,7 +525,11 @@ def _next_batch_backend(params: StreamParams, client: ApiClient) -> None:
         st.session_state.labels,
     )
     if centroid_map:
-        st.session_state.centroids = np.asarray(list(centroid_map.values()))
+        st.session_state.centroids = centroid_map
+    st.session_state.metrics = _compute_metrics(
+        st.session_state.points,
+        st.session_state.labels,
+    )
     try:
         metrics = client.get_latest_metrics()
         _apply_metrics(metrics)
@@ -599,15 +602,13 @@ def _call_backend(
 def _get_active_tab_index() -> int:
     qp = st.query_params
     raw = qp.get("tab", "0")
+    if isinstance(raw, list):
+        raw = raw[0] if raw else "0"
     try:
         idx = int(raw)
-    except ValueError:
+    except (TypeError, ValueError):
         idx = 0
     return max(0, min(idx, len(TAB_NAMES) - 1))
-
-def _set_active_tab_index(idx: int) -> None:
-    st.query_params["tab"] = str(idx)
-
 
 
 def _denstream_defaults(data_source: str) -> dict[str, float]:
@@ -732,7 +733,7 @@ def render_sidebar(client: ApiClient) -> SidebarState:
 
         apply_params = params_form.form_submit_button("Apply")
 
-        ttl_seconds = st.slider("point_ttl_seconds (0 = off)", 0.0, 30.0, 5.0, step=0.5)
+        ttl_seconds = st.slider("point_ttl_seconds (0 = off)", 0.0, 50.0, 5.0, step=0.5)
         st.session_state.ttl_seconds = ttl_seconds
 
         dynamic_enabled = False
@@ -741,9 +742,7 @@ def render_sidebar(client: ApiClient) -> SidebarState:
         dynamic_max = 6
 
         if data_source == "synthetic":
-            point_mode = st.checkbox("Point mode (animate)", value=False)
-            st.session_state.point_mode = point_mode
-
+            st.session_state.point_mode = True
             points_per_tick = st.slider("points_per_tick", 1, 200, 25, step=1)
             st.session_state.points_per_tick = points_per_tick
 
@@ -909,9 +908,7 @@ def handle_buttons(state: SidebarState, client: ApiClient) -> None:
     st.session_state.max_history_points = state.actions.max_history
     st.session_state.ttl_seconds = state.actions.ttl_seconds
 
-    if state.data_source == "synthetic" and (
-        state.batch_size > HIGH_BATCH_SIZE or state.drift_rate > HIGH_DRIFT_RATE
-    ):
+    if state.data_source == "synthetic" and (state.batch_size > HIGH_BATCH_SIZE or state.drift_rate > HIGH_DRIFT_RATE):
         st.warning("High values may reduce responsiveness.")
 
     if state.actions.start:
@@ -1029,11 +1026,19 @@ def render_tab_current_state() -> None:
         drift_value = latest.drift_magnitude if latest else None
         if drift_value is None:
             drift_value = _compute_drift_magnitude(st.session_state.centroid_history)
+        active_points = int(st.session_state.points.shape[0]) if hasattr(st.session_state, "points") else 0
 
-        st.metric("silhouette_score", f"{silhouette:.3f}" if isinstance(silhouette, (int, float)) else "—")
+        st.metric(
+            "silhouette_score",
+            f"{silhouette:.3f}" if isinstance(silhouette, (int, float)) else "—",
+        )
         st.metric("active_clusters", active_clusters)
+        st.metric("active_points", active_points)
         st.metric("noise_percentage", f"{noise_percent:.1f}%")
-        st.metric("drift_magnitude", f"{drift_value:.3f}" if isinstance(drift_value, (int, float)) else "—")
+        st.metric(
+            "drift_magnitude",
+            f"{drift_value:.3f}" if isinstance(drift_value, (int, float)) else "—",
+        )
 
         if isinstance(drift_value, (int, float)):
             progress_value = max(0.0, min(drift_value / 5.0, 1.0))
@@ -1150,7 +1155,10 @@ def render_tab_logs(client: ApiClient) -> UiActions:
 
     logs = st.session_state.recent_logs
     if logs:
-        series = st.selectbox("timeline_metric", ["latency_ms", "active_clusters", "noise_ratio", "silhouette_score"])
+        series = st.selectbox(
+            "timeline_metric",
+            ["latency_ms", "active_clusters", "noise_ratio", "silhouette_score"],
+        )
         fig = build_logs_timeline(logs, series)
         st.plotly_chart(fig, width="stretch")
 
@@ -1183,7 +1191,7 @@ def render_tab_logs(client: ApiClient) -> UiActions:
         pause=False,
         reset=False,
         next_batch=False,
-        refresh_interval=float(st.session_state.get("update_interval_seconds", 0.5)) if False else 0.5,
+        refresh_interval=(float(st.session_state.get("update_interval_seconds", 0.5)) if False else 0.5),
         max_history=int(st.session_state.get("max_history_points", 200)),
         ttl_seconds=float(st.session_state.get("ttl_seconds", 5.0)),
         show_last_n=bool(st.session_state.get("show_last_n", True)),
@@ -1214,18 +1222,23 @@ def main() -> None:
     handle_autorun(sidebar_state, client)
 
     # Render tabs
-    active_idx = _get_active_tab_index()
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = TAB_NAMES[_get_active_tab_index()]
 
     active_name = st.radio(
         "tabs",
         TAB_NAMES,
-        index=active_idx,
+        key="active_tab",
         horizontal=True,
         label_visibility="collapsed",
     )
 
     active_idx = TAB_NAMES.index(active_name)
-    _set_active_tab_index(active_idx)
+    current_tab = st.query_params.get("tab")
+    if isinstance(current_tab, list):
+        current_tab = current_tab[0] if current_tab else None
+    if current_tab != str(active_idx):
+        st.query_params["tab"] = str(active_idx)
 
     if active_name == "Current State":
         render_tab_current_state()
